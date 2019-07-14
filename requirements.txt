@@ -1,0 +1,5 @@
+click
+click-shell
+pymongo
+sphinx
+twisted
