@@ -22,7 +22,7 @@ VERSION = '0.1.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'click', 'click-shell', 'pymongo', 'twisted', 'sphinx'
+    'aiohttp', 'cchardet', 'aiodns', 'aiomongo', 'bson', 'config'
 ]
 
 # What packages are optional?
