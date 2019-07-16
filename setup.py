@@ -13,8 +13,8 @@ from setuptools import find_packages, setup, Command
 
 # Package meta-data.
 NAME = 'senslify'
-DESCRIPTION = 'A project for managing sensor data.'
-URL = 'https://github.com/gollum18/senslify'
+DESCRIPTION = ''
+URL = 'https://github.com/me/myproject'
 EMAIL = 'c.t.ford@vikes.csuohio.edu'
 AUTHOR = 'Christen Ford'
 REQUIRES_PYTHON = '>=3.6.0'
@@ -22,7 +22,7 @@ VERSION = '0.1.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'click', 'click-shell', 'pymongo', 'twisted', 'sphinx'
+    "mako", "cchardet", 'aiohttp', 'aiohttp-sse', 'aiohttp_mako', 'aiomongo'
 ]
 
 # What packages are optional?
@@ -91,7 +91,6 @@ class UploadCommand(Command):
 
         sys.exit()
 
-packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"])
 
 # Where the magic happens:
 setup(
@@ -107,12 +106,10 @@ setup(
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
-    entry_points={
-        'console_scripts': [
-            'senslify-client=senslify.client:main',
-            'senslify-server=senslify.server:main'
-        ],
-    },
+
+    # entry_points={
+    #     'console_scripts': ['mycli=mymodule:cli'],
+    # },
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,
