@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+    <title>{% block title %}{% endblock %} - Senslify</title>
+    <nav>
+        <h1>Senslify</h1>
+        <a href="{{ url('index') }}">Home</a>
+        <a href="{{ url('sensors') }}">Sensors</a>
+    </nav>
+</head>
+<body>
+    <header>
+        {% block header %}{% endblock %}
+    </header>
+    <section>
+        {% block content %}{% endblock %}
+    </section>
+    <footer>
+        {% block footer %}{% endblock %}
+    </footer>
+</body>
+</html>
