@@ -1,11 +1,33 @@
 {% extends 'base.jinja2' %}
 
+{% block head %}
+{% endblock %} 
+
 {% block header %}
     <h1>{% block title %}Live{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
+    <!-- Defines the primary canvase element for live charting via Chart.js -->
+    <span id="error_span"></span>
+    <canvas id="chart_canvas"></canvas>
 {% endblock %}
 
 {% block footer %}
+    <!-- Imports Chart.js css/javascript from cdn -->
+    <link rel="stylesheet" type="text/css" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
+    <!-- Sets up a WebSocket for polling -->
+    <script>
+        // create a WebSocket handler
+        
+
+        // stores the canvas for plotting
+        var chart = null;
+        
+        // get needed page elements when the page loads
+        $(document).ready(function () {
+            chart = document.getElementById('chart_canvas');
+        });
+    </script>
 {% endblock %}

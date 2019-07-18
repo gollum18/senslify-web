@@ -7,6 +7,7 @@
         <a href="{{ url('index') }}">Home</a>
         <a href="{{ url('sensors') }}">Sensors</a>
     </nav>
+    {% block head %}{% endblock %}
 </head>
 <body>
     <header>
@@ -17,6 +18,10 @@
     </section>
     <footer>
         {% block footer %}{% endblock %}
+        <link rel="stylesheet" type="text/css" src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"/>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.15.0/popper.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     </footer>
 </body>
 </html>
