@@ -1,27 +1,25 @@
-<!doctype html>
-<html>
-<head>
-    <title>{% block title %}{% endblock %} - Senslify</title>
-    <nav>
-        <h1>Senslify</h1>
-        <a href="{{ url('index') }}">Home</a>
-        <a href="{{ url('sensors') }}">Sensors</a>
-    </nav>
-    {% block head %}{% endblock %}
-</head>
-<body>
-    <header>
-        {% block header %}{% endblock %}
-    </header>
-    <section>
-        {% block content %}{% endblock %}
-    </section>
-    <footer>
-        {% block footer %}{% endblock %}
-        <link rel="stylesheet" type="text/css" src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"/>
-        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.15.0/popper.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-    </footer>
-</body>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {% block head %}{% endblock %}
+        <nav>
+            <ul>
+                <li><a href="{{ url('index') }}">Home</a></li>
+                <li><A href="{{ url('sensors') }}">Sensors</a></li>
+            </ul>
+        </nav>
+        <title>{% block title %}{% endblock%} - Senslify</title>
+    </head>
+    <body>
+        <header>
+            <h1>{% block title %}{% endblock %} - Senslify</h1>
+            {% block header %}{% endblock %}
+        </header>
+        <section id="content">
+            {% block content %}{% endblock %}
+        </section>
+        <footer>
+            {% block footer %}{% endblock %}
+        </footer>
+    </body>
 </html>

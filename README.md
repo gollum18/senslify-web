@@ -6,7 +6,6 @@ Senslifes server is written in pure Python3 and has the following dependencies.
 + [aiodns]()
 + [aiohttp]()
 + [aiohttp-jinja2]()
-+ [aiohttp-sse]()
 + [aiomongo]()
 + [cchardet]()
 
