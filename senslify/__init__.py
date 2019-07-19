@@ -22,20 +22,6 @@ import queue, os
 #
 
 
-async def poll_handler(request):
-    '''
-    Defines a generator for server-side events.
-
-    This generator sends reading information to connected clients.
-    '''
-    async with aiohttp_sse.sse_response(request) as resp:
-        while True:
-            sensor = request.query_string['sensor']
-            await data = request.app['msg_router'][sensor][1].get()
-            await resp.send(data)
-    return resp
-
-
 async def upload(request):
     '''
     Defines a POST endpoint for uploading data to the server.
@@ -45,13 +31,6 @@ async def upload(request):
     '''
     reading = simplejson.dumps(request.query_string['reading'])
     sensor = reading['sensor']
-    # enqueue the reading if necessary
-    if sensor in request.app['msg_router']:
-        if len(request.app['msg_router'][0]) > 0:
-            # because the msg_queue has a max size, this call will block if
-            #   attempting to put() when the queue is full
-            # maybe there should be a timeout?
-            request.app['msg_router'][sensor][1].put(request.query_string['reading'])
     # add the reading to the database
     #   must convert dumped json to bson as mongodb uses bson
     await request.app['db'].readings.insert_one(bson.loads(reading))
@@ -66,13 +45,11 @@ async def upload(request):
 
 @aiohttp_jinja2.template('sensors/live.jinja2')
 async def live(request):
-    sensor = request.query_string['sensor']
-    remote = request.remote
-    if sensor not in request.app['msg_router']:
-        request.app['msg_router'] = [set(), queue.Queue(maxsize=app['config'].max_q)]
-    if remote not in request.app['msg_router'][0]:
-        request.app['msg_router'][0].add(remote)
-    return {'title': 'Live on Sensor: ' + sensor}
+    sensor = 0
+    return {
+        'title': 'Live on Sensor: ' + sensor,
+        'ws_url': app['config'].ws_url
+    }
 
 
 @aiohttp_jinja2.template('sensors/sensors.jinja2')
@@ -111,9 +88,6 @@ app['config'] = config.Config('senslify.cfg')
 # sets up the database
 app['db'] = aiomongo.MongoClient(app['config'].dbconn)
 
-# maps sensors -> [listeners, msg_queue]
-app['msg_router'] = dict()
-
 # setup up the static root url for static content
 app['static_root_url'] = '/static'
 
@@ -122,10 +96,9 @@ app.router.add_resource(r'', name='index')
 app.router.add_resource(r'/sensors/live', name='live')
 app.router.add_resource(r'/sensors', name='sensors')
 
-
 # register the routes for the application
 app.router.add_route('POST', '/upload', upload)
-app.router.add_route('GET', '/sensors/ws', poll_handler)
+app.router.add_route('GET', '/ws', poll_handler)
 app.router.add_route('GET', '/sensors', sensors)
 app.router.add_route('POST', '/sensors/live', live)
 app.router.add_route('GET', '/', index)

@@ -19,15 +19,27 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
     <!-- Sets up a WebSocket for polling -->
     <script>
-        // create a WebSocket handler
-        
+        // the currently displayed reading type
+        var rtype = null;
 
-        // stores the canvas for plotting
+        // create a WebSocket handler
+        var ws = new WebSocket();
+
+        // stores the canvas context/canvas for plotting
+        var ctx = null;
         var chart = null;
         
         // get needed page elements when the page loads
         $(document).ready(function () {
-            chart = document.getElementById('chart_canvas');
+            ctx = document.getElementById('chart_canvas').getContext('2d');
+            chart = new Chart(ctx, {
+                type="line"
+            });
         });
+
+        // handle updates from the server
+        ws.onmessage = function(e) {
+            var reading = JSON.parse(e.data);
+        }
     </script>
 {% endblock %}
