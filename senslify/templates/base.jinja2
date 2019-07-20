@@ -1,24 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        {% block head %}{% endblock %}
+        <title>{% block title %}{% endblock%} - Senslify</title>
         <nav>
             <ul>
                 <li><a href="{{ url('index') }}">Home</a></li>
                 <li><A href="{{ url('sensors') }}">Sensors</a></li>
             </ul>
         </nav>
-        <title>{% block title %}{% endblock%} - Senslify</title>
+        {% block head %}{% endblock %}
     </head>
     <body>
         <header>
-            <h1>{% block title %}{% endblock %} - Senslify</h1>
             {% block header %}{% endblock %}
         </header>
         <section id="content">
             {% block content %}{% endblock %}
         </section>
         <footer>
+            <!-- Import JQuery and Popper -->
+            <script href="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+            <script href="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.15.0/popper.min.js"></script>
+            <!-- Import Bootstrap -->
+            <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css"/>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.min.js"></script>
             {% block footer %}{% endblock %}
         </footer>
     </body>

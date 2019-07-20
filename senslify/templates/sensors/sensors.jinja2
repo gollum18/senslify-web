@@ -1,7 +1,9 @@
-{% extends 'base.html' %}
+{% extends 'base.jinja2' %}
 
 {% block head %}{% endblock %}
 
-{% block header %}{% endblock %}
+{% block header %}
+    <h1>{% block title %}{% endblock %} - Senslify</h1>
+{% endblock %}
 {% block content %}{% endblock %}
 {% block footer %}{% endblock %}
