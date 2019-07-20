@@ -22,7 +22,8 @@ VERSION = '0.1.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    "aiohttp", "aiohttp-jinja2", "cchardet", "config", "aiodns", "aiomongo"
+    "aiohttp", "jinja2", "aiohttp-jinja2", "cchardet",
+    "config", "aiodns", "aiomongo", "simplejson"
 ]
 
 # What packages are optional?
