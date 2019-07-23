@@ -2,10 +2,13 @@ import asyncio, os
 import aiohttp, aiohttp_jinja2, jinja2
 import config
 
-import senslify
+from senslify.index import index_handler
+from senslify.sensors import sensors_handler, upload_handler
+from senslify.sockets import ws_handler
 
 
-def build_app(config_file='senslify.conf'):
+def build_app(config_file=
+        os.path.dirname(os.path.abspath(__file__)) + '/senslify.conf'):
     '''
     Defines a factory function for creating the senslify web application.
     Arguments:
@@ -17,8 +20,7 @@ def build_app(config_file='senslify.conf'):
     # create the application and setup the file loader
     app = aiohttp.web.Application()
     loader=jinja2.FileSystemLoader(
-        [os.path.join(os.path.dirname(__file__), "templates")],
-        autoescape=jinja2.selsct_autoescape(['http', 'xml'])
+        [os.path.join(os.path.dirname(__file__), "templates")]
     )
     aiohttp_jinja2.setup(app, loader=loader)
 
@@ -35,13 +37,14 @@ def build_app(config_file='senslify.conf'):
     app.router.add_resource(r'/ws', name='ws')
 
     # register the routes themselves
-    app.router.add_route('GET', '/', senslify.index.index_handler)
-    app.router.add_route('GET', '/sensors', senslify.sensors.sensors_handler)
-    app.router.add_route('POST', '/sensors/upload', senslify.sensors.upload_handler)
-    app.router.add_route('GET', '/ws', senslifty.sockets.ws_handler)
+    app.router.add_route('GET', '/', index_handler)
+    app.router.add_route('GET', '/sensors', sensors_handler)
+    app.router.add_route('POST', '/sensors/info', info_handler)
+    app.router.add_route('POST', '/sensors/upload', upload_handler)
+    app.router.add_route('GET', '/ws', ws_handler)
 
     # create the database connection
-    await senslify.db.create_aiomongo(app)
+    # await senslify.db.create_aiomongo(app)
 
     # return the application
     return app

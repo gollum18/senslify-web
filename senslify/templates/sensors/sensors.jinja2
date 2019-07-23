@@ -5,5 +5,16 @@
 {% block header %}
     <h1>{% block title %}{% endblock %} - Senslify</h1>
 {% endblock %}
-{% block content %}{% endblock %}
+{% block content %}
+    <ul id="sensor_list">
+    {% for sensor in sensors %}
+        <li>
+            <a href="{{ sensor.url }}" 
+               alt="Sensor: {{ sensor.sensor }}">
+                Sensor: {{ sensor.sensor }}
+            </a>
+        <li>
+    {% endfor %}
+    </ul>
+{% endblock %}
 {% block footer %}{% endblock %}

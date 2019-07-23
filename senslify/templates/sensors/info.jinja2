@@ -38,7 +38,8 @@
 
         // Defines a method for sending the server the room join request
         ws.onopen() = function(e) {
-            
+            msg = {'cmd': 'JOIN', 'msg': {{ sensor }}};
+            ws.send(JSON.stringify(msg));
         }
 
         // Receives information from the server
