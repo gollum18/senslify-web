@@ -23,7 +23,8 @@ VERSION = '0.1.0'
 # What packages are required for this module to be executed?
 REQUIRED = [
     "aiohttp", "jinja2", "aiohttp-jinja2", "cchardet",
-    "config", "aiodns", "aiomongo", "simplejson"
+    "config", "aiodns", "pymongo", "simplejson",
+    "marksupsafe", "dataclasses"
 ]
 
 # What packages are optional?
@@ -109,7 +110,7 @@ setup(
     # py_modules=['mypackage'],
 
     entry_points={
-        'console_scripts': ['senslify-start-server=__init__:main'],
+        'console_scripts': ['senslify-start-server=senslify.__init__:main'],
     },
     install_requires=REQUIRED,
     extras_require=EXTRAS,

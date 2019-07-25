@@ -1,4 +1,4 @@
-import asyncio, dataclass, queue, typing
+import asyncio, dataclasses, queue, typing
 import aiohttp
 import simplejson
 
@@ -10,13 +10,14 @@ class Room:
     A room contains a collection of connected aio.http.WebSocket objects.
     '''
 
-    @dataclass.dataclass(order=True)
+    @dataclasses.dataclass(order=True)
     class _PrioritizedItem:
         '''
         Defines a class for prioritizing objects.
         '''
         priority: float
-        item: typing.Any=dataclass.field(compare=False)
+        item: typing.Any=dataclasses.field(compare=False)
+    
 
     def __init__(self, maxsize=256, delay=500):
         '''
@@ -26,8 +27,18 @@ class Room:
         self.__q = queue.PriorityQueue(maxsize=256)
         self.__delay = delay
         # creates the broadcast loop and schedules it
-        self.__loop = asyncio.create_event_loop()
-        self.__btask = self.__loop.create_task(self.__broadcast())
+        self.__loop = asyncio.new_event_loop()
+        await self.__btask = self.__loop.create_task(self.__broadcast())
+        
+        
+    def __contains__(self, ws):
+        '''
+        Defines the contains method so users of the room may make use of the 'in'
+        keyword in their implementations.
+        Arguments:
+            ws: The WebSocket to check for.
+        '''
+        return ws in self.__clients
 
 
     async def __broadcast(self):
@@ -38,7 +49,17 @@ class Room:
             for ws in self.__clients:
                 data = self.__q.get()
                 await ws.send_str(simplejson.dumps(data.item))
-            yield from asyncio.sleep(1/self.__delay)
+            await asyncio.sleep(1/self.__delay)
+            
+    
+    @staticmethod
+    async def new():
+        '''
+        Factory function for returning a new room.
+        
+        Call this fucntion to get a new instance of this class.
+        '''
+        pass
 
 
     async def join(self, ws):
@@ -91,10 +112,11 @@ async def ws_handler(request):
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
             js = simplejson.loads(msg.data)
+            sensor = js['sensor']
             if js['cmd'] == 'JOIN':
-                if not js['sensor'] in _rooms:
-                    _rooms['sensor'] = Room()
-                _rooms[js['sensor']].join(ws)
+                if sensor not in _rooms.keys():
+                    _rooms[sensor] = Room()
+                await _rooms[sensor].join(ws)
             # close the connection if the client requested it
             if js['cmd'] == 'CLOSE':
                 # remove the client from the sensors room
@@ -102,7 +124,12 @@ async def ws_handler(request):
                 # close the connection
                 await ws.close()
         elif msg.type == aiohttp.WSMsgType.ERROR:
-            # TODO: Inform the client there was an error and close the connection
-            pass
+            # TODO: Optimize this, there has to be a better way then iterating
+            #   over all the rooms.
+            for room in _rooms:
+                if ws in room:
+                    await room.leave(ws)
+                    break
+            ws.send_str('WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception()))
 
     return ws

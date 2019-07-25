@@ -3,7 +3,7 @@
 {% block head %}{% endblock %}
 
 {% block header %}
-    <h1>{% block title %}{% endblock%} - Senslify</h1>
+    <h1>{{ title }} - Senslify</h1>
 {% endblock %}
 {% block content %}
     <canvas id="canvas_chart" width="400" height="400"></canvas>
@@ -14,13 +14,13 @@
         var chart;  // The chart canvas itself
         var ctx;    // The 2d context for drawing
         // Get the sensor
-        var sensor = {% block sensor %}{% endblock %}; 
+        var sensor = {{ sensor }}; 
         // Used for sending and receiving updates to/from the server
         //  Exists for the duration of the user's visit to the page
-        var ws = new WebSocket({% block ws_url %}{% endblock %});
+        var ws = new WebSocket('{{ ws_url }}');
 
         // Defines a method for setting up variables once the DOM tree loads
-        $(document).ready(function() {
+        $(document).on("ready", function(e) {
             // get a reference to the chart and its context for drawing
             ctx = document.getElementById('canvas_chart').getContext("2d");
             chart = new Chart(ctx, {
@@ -29,21 +29,21 @@
         });
 
         // Defines a method for closing the socket connection when navigating away
-        $(window).unload(function() {
+        $(window).on("unload", function(e) {
             // Send a message to the server to close the connection
             ws.send(JSON.stringify({'cmd': 'CLOSE'}));
             // Close the connection
             ws.close();
-        )};
+        });
 
         // Defines a method for sending the server the room join request
-        ws.onopen() = function(e) {
-            msg = {'cmd': 'JOIN', 'msg': {{ sensor }}};
+        ws.onopen = function(e) {
+            msg = {'cmd': 'JOIN', 'sensor': {{ sensor }}};
             ws.send(JSON.stringify(msg));
         }
 
         // Receives information from the server
-        ws.onmessage() = function(e) {
+        ws.onmessage = function(e) {
             // Only update the chart if the received data from the server 
             //  validates ok
             if (validate_reading(e.data)) {

@@ -2,8 +2,9 @@ import asyncio, os
 import aiohttp, aiohttp_jinja2, jinja2
 import config
 
+from senslify.db import create_pymongo, dispose_pymongo
 from senslify.index import index_handler
-from senslify.sensors import sensors_handler, upload_handler
+from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import ws_handler
 
 
@@ -39,12 +40,12 @@ def build_app(config_file=
     # register the routes themselves
     app.router.add_route('GET', '/', index_handler)
     app.router.add_route('GET', '/sensors', sensors_handler)
-    app.router.add_route('POST', '/sensors/info', info_handler)
+    app.router.add_route('GET', '/sensors/info', info_handler)
     app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
 
     # create the database connection
-    # await senslify.db.create_aiomongo(app)
+    create_pymongo(app)
 
     # return the application
     return app
