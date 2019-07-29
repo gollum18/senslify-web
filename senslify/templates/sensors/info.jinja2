@@ -14,7 +14,7 @@
         <h6>Note: Live display will not update if the sensor is offline.</h6>
     </section>
     <section>
-        <h3>Last {{ stack_size }} Readings for Sensor {{ sensor }}:</h3>
+        <h3>Last {{ num_readings }} Readings for Sensor {{ sensor }}:</h3>
         <ul id="readings_display"></ul>
             {% for reading in readings %}<li>{{ reading }}<\li>{% endfor %}
         </ul>
@@ -25,7 +25,7 @@
     <script href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
     <!-- The below script handles WebSocket and chart interaction -->
     <script>
-        const list_size = {{ max_readings }};  // The max size of the stack
+        const readings_size = {{ num_readings }};  // The max size of the stack
         var readings;  // The display for the most recent readings
         var chart;  // The chart canvas itself
         var ctx;    // The 2d context for drawing
@@ -88,30 +88,38 @@
             ws.send(JSON.stringify(msg));
         }
         
-        // 
+        // Handles readings as they come in from the server
+        function reading_handler(reading) {
+            if (validate_reading(reading)) {
+                // update the chart
+                update_chart(reading);
+                // update the list
+                update_list(reading);
+            }
+        } 
         
         /*
          * Defines support functions for the routing handlers
          */
 
         // Validates data received from the server
-        function validate_reading(data) {
+        function validate_reading(reading) {
             // TODO: Validate the data received from the server
             return true;
         }
 
         // Defines a method for updating the chart when data is received
-        function update_chart(data) {
+        function update_chart(reading) {
             // TODO: Update the chart with the data from the server
         }
         
         // Defines a method for updating the reading display when a reading
         //  comes in from the socket
-        function update_readings(reading) {
+        function update_list(reading) {
             // check if the output is full
-            if (stack_display.childElementCount === list_size) {
+            if (readings.childElementCount === readings_size) {
                 // remove the oldest reading
-                readings.removeChild(stack_display.childNodes[0]);
+                readings.removeChild(readings.childNodes[0]);
             }
             
             // append the newest reading to the end of the display
