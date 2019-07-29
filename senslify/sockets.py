@@ -3,6 +3,11 @@ import aiohttp
 import simplejson
 
 
+# The way this module is setup may necessitate switching to a class-based view
+# Maps sensors to rooms
+_rooms = dict()
+
+
 class Room:
     '''
     Defines a class that simulates Socket.IO's concept of rooms.
@@ -51,13 +56,20 @@ class Room:
                 await ws.send_str(simplejson.dumps(data.item))
             await asyncio.sleep(1/self.__delay)
             
+            
+    def is_empty(self):
+        '''
+        Determines if the room is empty or not.
+        '''
+        return len(self.__clients) == 0
+            
     
     @staticmethod
     async def new():
         '''
         Factory function for returning a new room.
         
-        Call this fucntion to get a new instance of this class.
+        Call this function to get a new instance of this class.
         '''
         pass
 
@@ -79,14 +91,14 @@ class Room:
             self.__clients.remove(ws)
 
 
-    async def receive(self, reading):
+    async def receive(self, msg):
         '''
         Enqueues an item to the message queue.
         Arguments:
-            reading: A dictionary containing reading information.
+            msg: A dictionary containing reading information.
         '''
-        ts = reading['ts']
-        self.__q.put(_PrioritizedItem(ts, reading))
+        ts = msg['ts']
+        self.__q.put(_PrioritizedItem(ts, msg))
 
 
     def stop(self):
@@ -97,13 +109,30 @@ class Room:
             self.__btask.cancel()
 
 
-# The way this module is setup may necessitate switching to a class-based view
-# Maps sensors to rooms
-_rooms = dict()
+async def message(room, msg):
+    '''
+    Messages a room.
+    
+    This method is called externally from the upload handler in the sensors.py
+    file. Do not call this method directly from this class.
+    Arguments:
+        room: The room to message.
+        msg: The message itself.
+    '''
+    global _rooms
+    
+    if room in _rooms.keys():
+        if not _rooms[room].is_empty():
+            await _rooms[room].receive(msg)
 
 
 # Defines a GET handler for WebSockets
 async def ws_handler(request):
+    '''
+    Handles request for the servers websocket address.
+    Arguments:
+        request: The request that initiated the WebSocket connection.
+    '''
     global _rooms
 
     ws = aiohttp.web.WebSocketResponse()
@@ -118,15 +147,14 @@ async def ws_handler(request):
                     _rooms[sensor] = Room()
                 await _rooms[sensor].join(ws)
             # close the connection if the client requested it
-            if js['cmd'] == 'CLOSE':
+            elif js['cmd'] == 'CLOSE':
                 # remove the client from the sensors room
-                _rooms[js['sensor']].leave(ws)
+                await _rooms[js['sensor']].leave(ws)
                 # close the connection
                 await ws.close()
         elif msg.type == aiohttp.WSMsgType.ERROR:
-            # TODO: Optimize this, there has to be a better way then iterating
-            #   over all the rooms.
             for room in _rooms:
+                # this is an O(1) operation, so this should be fine
                 if ws in room:
                     await room.leave(ws)
                     break

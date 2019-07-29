@@ -5,12 +5,28 @@
 {% block header %}
     <h1>{{ title }} - Senslify</h1>
 {% endblock %}
+
 {% block content %}
-    <canvas id="canvas_chart" width="400" height="400"></canvas>
+    <h2>Displays Live Data and Recent Readings</h2>
+    <section>
+        <h3>Live Display for Sensor {{ sensor }}:</h3>
+        <canvas id="canvas_chart" width="600" height="400"></canvas>
+        <h6>Note: Live display will not update if the sensor is offline.</h6>
+    </section>
+    <section>
+        <h3>Last {{ stack_size }} Readings for Sensor {{ sensor }}:</h3>
+        <ul id="readings_display"></ul>
+            {% for reading in readings %}<li>{{ reading }}<\li>{% endfor %}
+        </ul>
+    </section>
 {% endblock %}
+
 {% block footer %}
     <script href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
+    <!-- The below script handles WebSocket and chart interaction -->
     <script>
+        const list_size = {{ max_readings }};  // The max size of the stack
+        var readings;  // The display for the most recent readings
         var chart;  // The chart canvas itself
         var ctx;    // The 2d context for drawing
         // Get the sensor
@@ -26,6 +42,8 @@
             chart = new Chart(ctx, {
                 type: 'line'
             });
+            // get a reference to the stack display
+            readings = document.getElementById('readings_display');
         });
 
         // Defines a method for closing the socket connection when navigating away
@@ -36,20 +54,45 @@
             ws.close();
         });
 
-        // Defines a method for sending the server the room join request
+        // Registers the JOIN request to be sent to the server when the 
+        //  WebSocket is open. This may fail, but is unlikely
         ws.onopen = function(e) {
-            msg = {'cmd': 'JOIN', 'sensor': {{ sensor }}};
-            ws.send(JSON.stringify(msg));
+            join_handler();
         }
 
         // Receives information from the server
-        ws.onmessage = function(e) {
-            // Only update the chart if the received data from the server 
-            //  validates ok
-            if (validate_reading(e.data)) {
-                update_chart(e.data);
+        ws.onmessage = function(event) {
+            // get the response sent by the server
+            //  the server responds with JSON objects encoded as Strings,
+            //  decode the string to a JSON object so we can work with it
+            var msg = JSON.parse(event.data);
+            
+            // get the command from the server
+            var cmd = msg.cmd;
+            
+            // route the message to the appropriate handler
+            if (cmd === "READING") {
+                reading_handler(msg.msg);
             }
         }
+        
+        /*
+         * Define routing handlers for messages received by the server
+         */
+        
+        // Sends a join request to the server
+        function join_handler() {
+            // construct the request for the server
+            msg = {'cmd': 'JOIN', 'sensor': sensor};
+            // send the request
+            ws.send(JSON.stringify(msg));
+        }
+        
+        // 
+        
+        /*
+         * Defines support functions for the routing handlers
+         */
 
         // Validates data received from the server
         function validate_reading(data) {
@@ -60,6 +103,22 @@
         // Defines a method for updating the chart when data is received
         function update_chart(data) {
             // TODO: Update the chart with the data from the server
+        }
+        
+        // Defines a method for updating the reading display when a reading
+        //  comes in from the socket
+        function update_readings(reading) {
+            // check if the output is full
+            if (stack_display.childElementCount === list_size) {
+                // remove the oldest reading
+                readings.removeChild(stack_display.childNodes[0]);
+            }
+            
+            // append the newest reading to the end of the display
+            var node = document.createElement("LI");
+            var textNode = document.createTextNode(reading);
+            node.appendChild(textNode);
+            readings.appendChild(node);
         }
 
     </script>

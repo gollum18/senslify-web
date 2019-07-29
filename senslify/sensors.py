@@ -1,6 +1,8 @@
 import aiohttp, aiohttp_jinja2
 import bson, pymongo, simplejson
 
+from senslify.sockets import message
+
 
 @aiohttp_jinja2.template('sensors/info.jinja2')
 async def info_handler(request):
@@ -13,6 +15,7 @@ async def info_handler(request):
     if not request.query['sensor']:
         location = request.app.router['sensors'].url_for()
         raise aiohttp.web.HTTPFound(location=location)
+    # build the WebSokcet address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
     sensor = request.query['sensor']
     host = request.app['config'].host
@@ -20,9 +23,30 @@ async def info_handler(request):
     # TODO: Remove the hard-coded dependency here
     route = '/ws'
     ws_url = prefix + host + port + route
+    # build the sensor records page
+    readings = []
+    num_readings = request.app['config'].num_readings
+    try:
+        with request.app['db'].readings.find().limit(num_readings) as cursor:
+            for reading in cursor:
+                readings.append(reading)
+    except pymongo.errors.ConnectionFailure as e:
+        status = 403
+        if request.app['config'].debug:
+            text = 'HTTP RESPONSE 403:\n%s'.format(str(e))
+        else:
+            text = 'HTTP RESPONSE 403:\nUnable to connect to the senslify database!'
+    except pymongo.errors.PyMongoError as e:
+        status = 403
+        if request.app['config'].debug:
+            text = 'HTTP RESPONSE 403:\n%s'.format(str(e))
+        else:
+            text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
     # build the response thru jinja2
     return {'title': 'Sensor Info',
             'sensor': sensor,
+            'readings': readings,
+            'num_readings': num_readings,
             'ws_url': ws_url}
 
 
@@ -44,10 +68,8 @@ async def sensors_handler(request):
     status = 200
     sensors = []
     try:
-        # only retrieve the first 100 records, let the user get more
-        #   if they need to - get the sensors in batches of 10
-        # TODO: This needs optimized
-        with request.app['db'].senslify.sensors.find().batch_size(10) as cursor:
+        # get the list of sensors
+        with request.app['db'].senslify.sensors.find() as cursor:
             for sensor in cursor:
                 sensor['url'] = build_info_url(request, sensor)
                 sensors.append(sensor)
@@ -81,10 +103,11 @@ async def upload_handler(request):
     #   want to explicitly convert the msg to BSON for safety reasons
     json = simplejson.dumps(request.query['msg'])
     # TODO: Perform verification on the data passed to the handler
-    if json['sensor'] is None or json['group'] is None:
+    if json['sensor'] is None:
         status = 400
-        text = 'You must supply both a sensor ID and a group ID.'
+        text = 'You must supply a sensor ID in your message.'
     if status == 200:
+        # upload the received message to the database
         doc = bson.BSON.encode(json)
         try:
             await request.app['db'].insert_one(doc)
@@ -100,4 +123,6 @@ async def upload_handler(request):
                 text = 'HTTP RESPONSE 500:\n%s'.format(str(e))
             else:
                 text = 'HTTP RESPONSE 500:\nAn error has occurred with the database!'
+        # send the message to the room
+        await message(json['sensor'], json)
     return aiohttp.web.Response(text=text, status=status)
