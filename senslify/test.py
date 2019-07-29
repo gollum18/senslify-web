@@ -9,25 +9,6 @@ import unittest
 from senslify.utils import MemoryCache, Message
 
 
-class TestCacheMethods(unittest.TestCase):
-    '''
-    Defines methods for testing the MemoryCache class.
-    '''
-
-    def setUp(self):
-        '''
-        Setsup the testing harness before each test.
-        '''
-        self.cache = MemoryCache(32)
-    
-    
-    def tearDown(self):
-        '''
-        Tearsdown the testing harness after each test.
-        '''
-        self.cache = None
-    
-
 class TestMessageMethods(unittest.TestCase):
     '''
     Defines methods for testing the Message class.

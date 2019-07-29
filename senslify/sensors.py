@@ -12,10 +12,10 @@ async def info_handler(request):
         request: A aiohttp.web.Request object.
     '''
     # redirect to the sensors page if no sensor was provided
-    if not request.query['sensor']:
+    if 'sensor' not in request.query:
         location = request.app.router['sensors'].url_for()
         raise aiohttp.web.HTTPFound(location=location)
-    # build the WebSokcet address for the webpage
+    # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
     sensor = request.query['sensor']
     host = request.app['config'].host
@@ -23,7 +23,7 @@ async def info_handler(request):
     # TODO: Remove the hard-coded dependency here
     route = '/ws'
     ws_url = prefix + host + port + route
-    # build the sensor records page
+    # build the sensor readings query
     readings = []
     num_readings = request.app['config'].num_readings
     try:
@@ -51,6 +51,14 @@ async def info_handler(request):
 
 
 def build_info_url(request, sensor):
+    '''
+    Helper function that creates a url for a given sensor.
+    Arguments:
+        request: The request that wants the sensor url.
+        sensor: The sensor to generate a url for.
+    This function is called primarily by the sensors_handler function to
+    generate links to the sensor info page.
+    '''
     route = request.app.router['info'].url_for().with_query(
         {'sensor': sensor['sensor']}
     )

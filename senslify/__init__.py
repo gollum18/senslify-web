@@ -1,4 +1,4 @@
-import asyncio, os
+import asyncio, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
 import config
 
@@ -8,14 +8,13 @@ from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import ws_handler
 
 
-def build_app(config_file=
-        os.path.dirname(os.path.abspath(__file__)) + '/senslify.conf'):
+def build_app(config_file='./senslify.conf'):
     '''
     Defines a factory function for creating the senslify web application.
     Arguments:
         config_file: The path to the senslify configuration file.
     Returns:
-        An instance o fht esenslify web application configured with the
+        An instance of the senslify web application configured with the
         settings found in the config_file.
     '''
     # create the application and setup the file loader
@@ -60,7 +59,10 @@ def main():
     command line will invoke this command and start the server.
     '''
     # get the app
-    app = build_app()
+    if len(sys.argv) == 2:
+        app = build_app(config_file=sys.argv[2])
+    else:
+        app = build_app()
     # launch the web app
     aiohttp.web.run_app(app, host=app['config'].host, port=app['config'].port)
 
