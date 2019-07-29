@@ -22,18 +22,6 @@ class Room:
         '''
         priority: float
         item: typing.Any=dataclasses.field(compare=False)
-    
-
-    def __init__(self, maxsize=256, delay=500):
-        '''
-        Returns a new instance of a room object.
-        '''
-        self.__clients = set()
-        self.__q = queue.PriorityQueue(maxsize=256)
-        self.__delay = delay
-        # creates the broadcast loop and schedules it
-        self.__loop = asyncio.new_event_loop()
-        await self.__btask = self.__loop.create_task(self.__broadcast())
         
         
     def __contains__(self, ws):
@@ -43,7 +31,7 @@ class Room:
         Arguments:
             ws: The WebSocket to check for.
         '''
-        return ws in self.__clients
+        return ws in self._clients
 
 
     async def __broadcast(self):
@@ -51,10 +39,10 @@ class Room:
         Defines a task for broadcasting messages to subscribed WebSockets.
         '''
         while True:
-            for ws in self.__clients:
-                data = self.__q.get()
+            for ws in self._clients:
+                data = self._q.get()
                 await ws.send_str(simplejson.dumps(data.item))
-            await asyncio.sleep(1/self.__delay)
+            await asyncio.sleep(1/self._delay)
             
             
     def is_empty(self):
@@ -65,13 +53,21 @@ class Room:
             
     
     @staticmethod
-    async def new():
+    async def new(maxsize=256, delay=500):
         '''
         Factory function for returning a new room.
         
         Call this function to get a new instance of this class.
         '''
-        pass
+        room = Room()
+        room._clients = set()
+        room._q = queue.PriorityQueue(maxsize=256)
+        room._delay = delay
+        # creates the broadcast loop and schedules it
+        room._loop = asyncio.new_event_loop()
+        room._btask = await self._loop.create_task(self.__broadcast())
+        # return the room
+        return room
 
 
     async def join(self, ws):
@@ -79,16 +75,16 @@ class Room:
         Defines a method for subscribing WebSockets to receive messages from this
         room.
         '''
-        if ws not in self.__clients:
-            self.__clients.add(ws)
+        if ws not in self._clients:
+            self._clients.add(ws)
 
 
     async def leave(self, ws):
         '''
         Defines a method for unsubscribing WebSockets from receiving messages.
         '''
-        if ws in self.__clients:
-            self.__clients.remove(ws)
+        if ws in self._clients:
+            self._clients.remove(ws)
 
 
     async def receive(self, msg):
@@ -99,14 +95,19 @@ class Room:
         '''
         ts = msg['ts']
         self.__q.put(_PrioritizedItem(ts, msg))
+        
+        
+    async def start(self):
+        if self._btask.cancelled():
+            self._btask = await self._loop.create_task(self.__broadcast())
 
 
     def stop(self):
         '''
         Stops broadcasting messages.
         '''
-        if not self.__btask.cancelled():
-            self.__btask.cancel()
+        if not self._btask.cancelled():
+            self._btask.cancel()
 
 
 async def message(room, msg):
