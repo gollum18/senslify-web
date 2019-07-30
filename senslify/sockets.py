@@ -3,6 +3,11 @@ import aiohttp
 import simplejson
 
 
+# The way this module is setup may necessitate switching to a class-based view
+# Maps sensors to rooms
+_rooms = dict()
+
+
 class Room:
     '''
     Defines a class that simulates Socket.IO's concept of rooms.
@@ -17,18 +22,6 @@ class Room:
         '''
         priority: float
         item: typing.Any=dataclasses.field(compare=False)
-    
-
-    def __init__(self, maxsize=256, delay=500):
-        '''
-        Returns a new instance of a room object.
-        '''
-        self.__clients = set()
-        self.__q = queue.PriorityQueue(maxsize=256)
-        self.__delay = delay
-        # creates the broadcast loop and schedules it
-        self.__loop = asyncio.new_event_loop()
-        self.__handle = self.__loop.call_soon(self.__broadcast)
         
         
     def __contains__(self, ws):
@@ -38,28 +31,43 @@ class Room:
         Arguments:
             ws: The WebSocket to check for.
         '''
-        return ws in self.__clients
+        return ws in self._clients
 
 
     async def __broadcast(self):
         '''
         Defines a task for broadcasting messages to subscribed WebSockets.
         '''
-        while self.__broadcasting:
-            for ws in self.__clients:
-                data = self.__q.get()
+        while True:
+            for ws in self._clients:
+                data = self._q.get()
                 await ws.send_str(simplejson.dumps(data.item))
-            await asyncio.sleep(1/self.__delay)
+            await asyncio.sleep(1/self._delay)
+            
+            
+    def is_empty(self):
+        '''
+        Determines if the room is empty or not.
+        '''
+        return len(self.__clients) == 0
             
     
     @staticmethod
-    async def new():
+    async def new(maxsize=256, delay=500):
         '''
         Factory function for returning a new room.
         
-        Call this fucntion to get a new instance of this class.
+        Call this function to get a new instance of this class.
         '''
-        pass
+        room = Room()
+        room._clients = set()
+        room._q = queue.PriorityQueue(maxsize=256)
+        room._delay = delay
+        # creates the broadcast loop and schedules it
+        room._loop = asyncio.new_event_loop()
+        room._btask = await self._loop.create_task(self.__broadcast())
+        # return the room
+        return room
 
 
     async def join(self, ws):
@@ -67,26 +75,26 @@ class Room:
         Defines a method for subscribing WebSockets to receive messages from this
         room.
         '''
-        if ws not in self.__clients:
-            self.__clients.add(ws)
+        if ws not in self._clients:
+            self._clients.add(ws)
 
 
     async def leave(self, ws):
         '''
         Defines a method for unsubscribing WebSockets from receiving messages.
         '''
-        if ws in self.__clients:
-            self.__clients.remove(ws)
+        if ws in self._clients:
+            self._clients.remove(ws)
 
 
-    async def receive(self, reading):
+    async def receive(self, msg):
         '''
         Enqueues an item to the message queue.
         Arguments:
-            reading: A dictionary containing reading information.
+            msg: A dictionary containing reading information.
         '''
-        ts = reading['ts']
-        self.__q.put(_PrioritizedItem(ts, reading))
+        ts = msg['ts']
+        self.__q.put(_PrioritizedItem(ts, msg))
         
         
     def broadcasting(self):
@@ -105,21 +113,43 @@ class Room:
             self.__handle = self.__loop.call_soon(self.broadcast)
         
         
+    async def start(self):
+        if self._btask.cancelled():
+            self._btask = await self._loop.create_task(self.__broadcast())
+
+
     def stop(self):
         '''
         Stops broadcasting messages.
         '''
-        if not self.__handle.cancelled():
-            self.__handle.cancel()
+        if not self._btask.cancelled():
+            self._btask.cancel()
 
 
-# The way this module is setup may necessitate switching to a class-based view
-# Maps sensors to rooms
-_rooms = dict()
+async def message(room, msg):
+    '''
+    Messages a room.
+    
+    This method is called externally from the upload handler in the sensors.py
+    file. Do not call this method directly from this class.
+    Arguments:
+        room: The room to message.
+        msg: The message itself.
+    '''
+    global _rooms
+    
+    if room in _rooms.keys():
+        if not _rooms[room].is_empty():
+            await _rooms[room].receive(msg)
 
 
 # Defines a GET handler for WebSockets
 async def ws_handler(request):
+    '''
+    Handles request for the servers websocket address.
+    Arguments:
+        request: The request that initiated the WebSocket connection.
+    '''
     global _rooms
 
     ws = aiohttp.web.WebSocketResponse()
@@ -134,15 +164,14 @@ async def ws_handler(request):
                     _rooms[sensor] = Room()
                 await _rooms[sensor].join(ws)
             # close the connection if the client requested it
-            if js['cmd'] == 'CLOSE':
+            elif js['cmd'] == 'CLOSE':
                 # remove the client from the sensors room
-                _rooms[js['sensor']].leave(ws)
+                await _rooms[js['sensor']].leave(ws)
                 # close the connection
                 await ws.close()
         elif msg.type == aiohttp.WSMsgType.ERROR:
-            # TODO: Optimize this, there has to be a better way then iterating
-            #   over all the rooms.
             for room in _rooms:
+                # this is an O(1) operation, so this should be fine
                 if ws in room:
                     await room.leave(ws)
                     break
