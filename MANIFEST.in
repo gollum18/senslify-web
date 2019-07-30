@@ -1,3 +1,5 @@
+include LICENSE.md
+include README.md
 include senslify/senslify.conf
 recursive-include senslify/static *
 recursive-include senslify/templates *
