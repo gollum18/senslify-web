@@ -63,7 +63,7 @@ class MemoryCache:
         Pages an item from cache and returns its position.
         '''
         pos = 0
-        age = self._items[0].
+        age = self._items[0][_AGE]
         for i in range(1, self._size):
             if self._items[i][_AGE] > age:
                 pos = i

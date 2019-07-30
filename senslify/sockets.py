@@ -28,7 +28,7 @@ class Room:
         self.__delay = delay
         # creates the broadcast loop and schedules it
         self.__loop = asyncio.new_event_loop()
-        await self.__btask = self.__loop.create_task(self.__broadcast())
+        self.__handle = self.__loop.call_soon(self.__broadcast)
         
         
     def __contains__(self, ws):
@@ -45,7 +45,7 @@ class Room:
         '''
         Defines a task for broadcasting messages to subscribed WebSockets.
         '''
-        while True:
+        while self.__broadcasting:
             for ws in self.__clients:
                 data = self.__q.get()
                 await ws.send_str(simplejson.dumps(data.item))
@@ -87,14 +87,30 @@ class Room:
         '''
         ts = reading['ts']
         self.__q.put(_PrioritizedItem(ts, reading))
-
-
+        
+        
+    def broadcasting(self):
+        '''
+        Returns whether or not the room is broadcasting messages to its
+        participants.
+        '''
+        return self.__handle.cancelled()
+        
+        
+    def start(self):
+        '''
+        Starts broadcasting messages.
+        '''
+        if self.__handle.cancelled():
+            self.__handle = self.__loop.call_soon(self.broadcast)
+        
+        
     def stop(self):
         '''
         Stops broadcasting messages.
         '''
-        if not self.__btask.cancelled():
-            self.__btask.cancel()
+        if not self.__handle.cancelled():
+            self.__handle.cancel()
 
 
 # The way this module is setup may necessitate switching to a class-based view
