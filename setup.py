@@ -30,7 +30,7 @@ REQUIRED = [
 # What packages are optional?
 EXTRAS = {
     # 'fancy feature': ['django'],
-    'sensorgen': ['openpyxl', 'openpyxl-utilities'],
+    'xls2tsv': ['click', 'defusedxml', 'openpyxl', 'openpyxl-utilities'],
 }
 
 # The rest you shouldn't have to touch too much :)
