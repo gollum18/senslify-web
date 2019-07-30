@@ -1,7 +1,11 @@
 # Name: xls2tsv.py
 # Since: July 30th, 2019
 # Author: Christen Ford
-# Description: Converts XLS/XLSM documents to TSV format. I have explicitly chosen to TSV over CSV as there are certain well-known programs and libraries that actively choose not to support CSV files (such as SQL Server). Whereas TSV files seem more universally supported.
+# Description: Converts XLS/XLSM documents to TSV format. I have explicitly 
+#   chosen TSV over CSV as there are certain well-known programs and 
+#   libraries that actively choose not to support CSV files (such as SQL Server). 
+#   Whereas TSV files seem more universally supported.
+# This converter *should* work with indiscrimately large files without penalty.
 
 # Import standard libraries
 import csv, sys, os
@@ -14,7 +18,7 @@ import openpyxl as pyxl
 import openpyxl_utilities as utils
 
 
-def get_outfile(filepath, worksheet):
+def get_outfile(filepath, worksheet=None):
     '''
     Helper function used to generate output filenames.
     Mandatory Arguments:
@@ -25,14 +29,17 @@ def get_outfile(filepath, worksheet):
     parts = filepath.split(os.pathsep)
     filename = parts[-1]
     # Strip off the file extension, throw an error if unsupported filetype
-    if filename.endswith('.xls'):
-        filename = filename.rstrip('.xls')
+    if filename.endswith('.xlsx'):
+        filename = filename.rstrip('.xlsx')
     elif filename.endswith('.xlsm'):
         filename = filename.rstrip('.xlsm')
     else:
         raise ValueError('Unsupported filetype detected!')
     # Construct the outfile name to return
-    outfile = '{}_{}.tsv'.format(filename, worksheet)
+    if worksheet:
+        outfile = '{}_{}.tsv'.format(filename, worksheet)
+    else:
+        outfile = '{}.tsv'.format(filename)
     # return the outfile name
     return outfile
 
@@ -45,11 +52,14 @@ def write_outfile(ws_handle, outfile):
         ws_handle: The handle for a worksheet.
         outfile: The filepath to dump to.
     '''
-    try:
-        #TODO: Open a tsv file using the csv lib and write out to it
-        pass
-    except BaseException as e:
-        raise e
+    with open(outfile, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter='\t', 
+            quotechar="\"", quoting=csv.QUOTE_MINIMAL)
+        for raw_row in ws_handle.rows:
+            row = []
+            for cell in raw_row:
+                row.append(cell.value)
+            writer.writerow(row)
 
 
 @click.command()
@@ -69,34 +79,38 @@ def convert_command(infile, outfile, worksheet, verbose):
     '''
     try:
         # Attempt to open the workbook
-        wb_handle = pyxl.load_workbook(filename=infile, read_only=True))
+        wb_handle = pyxl.load_workbook(filename=infile, read_only=True)
 
-        # Start writing a single file if necessary
+        # Check if the user specified a sheet
         if worksheet and worksheet in wb_handle:
             if not outfile:
-                outfile = get_outfile()
-        # Otherwise, write all sheets in the book
-        else:
-            for ws_name in wb.keys():
-                ws_handle = workbook[ws_name]
-
-
-
+                outfile = get_outfile(infile, worksheet)
+        # Otherwise write a single sheet if the book has one page or all pages
+        #   othwerise
+        elif not worksheet:
+            if len(wb_handle.sheetnames) == 1:
+                # get the handle, and file name
+                ws_handle = wb_handle.active
+                outfile = get_outfile(infile)
+                # write the outfile
+                write_outfile(ws_handle, outfile)
+            else:
+                for ws_name in wb.keys():
+                    # get a handle to the current sheet, build its outfile name
+                    ws_handle = wb_handle[ws_name]
+                    outfile = get_outfile(infile, ws_name)
+                    # write the outfile
+                    write_outfile(ws_handle, outfile)
 
     except OSError as e:
         click.secho('An OSError occurred during processing!', fg='red')
         if verbose:
-            click.secho(str(e). fg='red')
+            click.secho('{}'.format(e), fg='red')
         sys.exit(-1)
     except IOError as e:
         click.secho('An IOError occurred during processing!', fg='red')
         if verbose:
-            click.secho(str(e), fg='red')
-        sys.exit(-1)
-    except BaseException as e:
-        click.secho('An error occurred during processing!', fg='red')
-        if verbose:
-            click.secho(str(e), fg='red')
+            click.secho('{}'.format(e), fg='red')
         sys.exit(-1)
 
 
