@@ -28,7 +28,6 @@
         const readings_size = {{ num_readings }};  // The max size of the stack
         var readings;  // The display for the most recent readings
         var chart;  // The chart canvas itself
-        var ctx;    // The 2d context for drawing
         // Get the sensor
         var sensor = {{ sensor }}; 
         // Used for sending and receiving updates to/from the server
@@ -38,12 +37,12 @@
         // Defines a method for setting up variables once the DOM tree loads
         $(document).on("ready", function(e) {
             // get a reference to the chart and its context for drawing
-            ctx = document.getElementById('canvas_chart').getContext("2d");
+            var ctx = $('#canvas_chart');
             chart = new Chart(ctx, {
                 type: 'line'
             });
             // get a reference to the stack display
-            readings = document.getElementById('readings_display');
+            readings = $('#readings_display');
         });
 
         // Defines a method for closing the socket connection when navigating away
@@ -104,13 +103,24 @@
 
         // Validates data received from the server
         function validate_reading(reading) {
-            // TODO: Validate the data received from the server
+            if (!reading.hasOwnProperty('ts') || reading.ts <= 0) {
+                return false;
+            }
+            if (!reading.hasOwnProperty('value') || reading.value < 0) {
+                return false;
+            }
             return true;
         }
 
         // Defines a method for updating the chart when data is received
         function update_chart(reading) {
-            // TODO: Update the chart with the data from the server
+            // update the data array
+            chart.data.datasets.forEach((dataset) => {
+                dataset.data.push({'x': reading.ts, 'y': readings.value})
+            });
+
+            // updates the view on the chart
+            chart.update();
         }
         
         // Defines a method for updating the reading display when a reading
