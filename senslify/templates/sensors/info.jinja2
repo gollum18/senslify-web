@@ -9,9 +9,21 @@
 {% block content %}
     <h2>Displays Live Data and Recent Readings</h2>
     <section>
-        <h3>Live Display for Sensor {{ sensor }}:</h3>
-        <canvas id="canvas_chart" width="600" height="400"></canvas>
-        <h6>Note: Live display will not update if the sensor is offline.</h6>
+        <div>
+            <h3>Live Display for Sensor {{ sensor }}:</h3>
+            <canvas id="canvas_chart" width="600" height="400"></canvas>
+            <h6>Note: Live display will not update if the sensor is offline.</h6>
+        </div>
+        <div>
+            <!-- Used to indicate the reading type to send from server -->
+            <label for="sel_rtype">Reading: </label>
+            <select id="sel_rtype" onchange="change_stream_handler()">
+                <option value="humidity">Humidity</option>
+                <option value="light">Light</option>
+                <option value="temp">Temperature</option>
+                <option value="voltage">Voltage</option>
+            </select>
+        </div>
     </section>
     <section>
         <h3>Last {{ num_readings }} Readings for Sensor {{ sensor }}:</h3>
@@ -22,10 +34,12 @@
 {% endblock %}
 
 {% block footer %}
+    <!-- Pulls down the Chart.js script for this file only. -->
     <script href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
     <!-- The below script handles WebSocket and chart interaction -->
     <script>
         const readings_size = {{ num_readings }};  // The max size of the stack
+        var sel_rtype;  // The selector for choosing which reading to receive
         var readings;  // The display for the most recent readings
         var chart;  // The chart canvas itself
         var ctx;    // The 2d context for drawing
@@ -37,6 +51,8 @@
 
         // Defines a method for setting up variables once the DOM tree loads
         $(document).on("ready", function(e) {
+            // get a reference to the reading select
+            sel_rtype = document.getElementById('sel_rtype');
             // get a reference to the chart and its context for drawing
             ctx = document.getElementById('canvas_chart').getContext("2d");
             chart = new Chart(ctx, {
@@ -97,6 +113,11 @@
                 update_list(reading);
             }
         } 
+
+        // Handles changing the reading that the page is receiving for the sensor
+        function change_stream_handler() {
+            
+        }
         
         /*
          * Defines support functions for the routing handlers

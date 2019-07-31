@@ -67,15 +67,9 @@ def write_outfile(ws_handle, outfile):
 @click.option('-of', '--outfile', default=None, help='The file to write the converted tsv to.')
 @click.option('-ws', '--worksheet', default=None, help='The worksheet to convert.')
 @click.option('-v', '--verbose', default=False, is_flag=True, help='Will print additional information if set.')
-def convert_command(infile, outfile, worksheet, verbose):
+def main(infile, outfile, worksheet, verbose):
     '''
-    Attempts to convert the XLS/XLSM file pointed to by filename to a TSV file. If there is more than one worksheet in the book, then each worksheet will produce an additional tsv file with the filename: '[workbook]_[worsheet].tsv'.
-    Mandatory Arguments:
-        filename: The path to the XLS/XLSM document.
-    Optional Arguments:
-        -of/--outfile: The path to write the converted tsv file to.
-        -ws/--worksheet: The worksheet to convert. If there is more than one worksheet in the workbook and this option is specified, only this worksheet will be converted to a tsv.
-        -v/--verbose: Prints more information during runtime if set.
+    Attempts to convert the XLS/XLSM file pointed to by INFILE to a TSV file. If there is more than one worksheet in the book, then each worksheet will produce an additional tsv file with the filename: '[workbook]_[worsheet].tsv'.
     '''
     try:
         # Attempt to open the workbook
@@ -115,4 +109,4 @@ def convert_command(infile, outfile, worksheet, verbose):
 
 
 if __name__ == '__main__':
-    convert_command()
+    main()

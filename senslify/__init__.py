@@ -8,7 +8,7 @@ from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import ws_handler
 
 
-def build_app(config_file='./senslify.conf'):
+def build_app(config_file='senslify.conf'):
     '''
     Defines a factory function for creating the senslify web application.
     Arguments:

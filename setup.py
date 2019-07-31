@@ -24,7 +24,7 @@ VERSION = '0.1.0'
 REQUIRED = [
     "aiohttp", "jinja2", "aiohttp-jinja2", "cchardet",
     "config", "aiodns", "pymongo", "simplejson",
-    "markupsafe", "dataclasses"
+    "markupsafe"
 ]
 
 # What packages are optional?
@@ -111,7 +111,10 @@ setup(
     # py_modules=['mypackage'],
 
     entry_points={
-        'console_scripts': ['senslify-start-server=senslify.__init__:main'],
+        'console_scripts': [
+            'senslify=senslify.__init__:main',
+            'xlsx2tsv=senslify.tools.xlsx2tsv:main'
+        ],
     },
     install_requires=REQUIRED,
     extras_require=EXTRAS,
