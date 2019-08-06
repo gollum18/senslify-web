@@ -1,6 +1,7 @@
 import aiohttp, aiohttp_jinja2
 import bson, pymongo, simplejson
 
+from senslify.db import get_sensors, get_readings
 from senslify.sockets import message
 
 
@@ -12,39 +13,41 @@ async def info_handler(request):
         request: A aiohttp.web.Request object.
     '''
     # redirect to the sensors page if no sensor was provided
-    if 'sensor' not in request.query:
+    if 'sensor' not in request.query or 'group' not in request.query:
         location = request.app.router['sensors'].url_for()
         raise aiohttp.web.HTTPFound(location=location)
     # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
     sensor = request.query['sensor']
+    group = request.query['group]
     host = request.app['config'].host
     port = ':' + request.app['config'].port
     # TODO: Remove the hard-coded dependency here
     route = '/ws'
     ws_url = prefix + host + port + route
     # build the sensor readings query
-    readings = []
+    readings = None
     num_readings = request.app['config'].num_readings
     try:
-        with request.app['db'].readings.find().limit(num_readings) as cursor:
-            for reading in cursor:
-                readings.append(reading)
+        # TODO: It may prove more prudent to just pass the request to the 
+        #   db class
+        readings = get_readings(request.app['db'], sensor, group, num_readings)
     except pymongo.errors.ConnectionFailure as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n%s'.format(str(e))
+            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
         else:
             text = 'HTTP RESPONSE 403:\nUnable to connect to the senslify database!'
     except pymongo.errors.PyMongoError as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n%s'.format(str(e))
+            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
         else:
             text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
     # build the response thru jinja2
     return {'title': 'Sensor Info',
             'sensor': sensor,
+            'group': group,
             'readings': readings,
             'num_readings': num_readings,
             'ws_url': ws_url}
@@ -72,25 +75,27 @@ async def sensors_handler(request):
     Arguments:
         request: A aiohttp.web.Request object.
     '''
-    
+    # redirect to the index page if no group was provided
+    if 'group' not in request.query:
+        location = request.app.router['index'].url_for()
+        raise aiohttp.web.HTTPFound(location=location)
+    group = request.query['group']
     status = 200
-    sensors = []
+    sensors = None
     try:
-        # get the list of sensors
-        with request.app['db'].senslify.sensors.find() as cursor:
-            for sensor in cursor:
-                sensor['url'] = build_info_url(request, sensor)
-                sensors.append(sensor)
+        sensors = get_sensors(request.app['db'], group)
+        for sensor in sensors:
+            sensor['url'] = build_info_url(request, sensor)
     except pymongo.errors.ConnectionFailure as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n%s'.format(str(e))
+            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
         else:
             text = 'HTTP RESPONSE 403:\nUnable to connect to the senslify database!'
     except pymongo.errors.PyMongoError as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n%s'.format(str(e))
+            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
         else:
             text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
     if status != 200:
@@ -122,13 +127,13 @@ async def upload_handler(request):
         except pymongo.errors.ConnectionFalure as e:
             status = 500
             if request.app['config'].debug:
-                text = 'HTTP RESPONSE 500:\n%s'.format(str(e))
+                text = 'HTTP RESPONSE 500:\n{}'.format(str(e))
             else:
                 text = 'HTTP RESPONSE 500:\nUnable to connect to the senslify database!'
         except pymongo.errors.PyMongoError as e:
             status = 500
             if request.app['config'].debug:
-                text = 'HTTP RESPONSE 500:\n%s'.format(str(e))
+                text = 'HTTP RESPONSE 500:\n{}'.format(str(e))
             else:
                 text = 'HTTP RESPONSE 500:\nAn error has occurred with the database!'
         # send the message to the room
