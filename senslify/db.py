@@ -1,3 +1,7 @@
+# make pymongo work with async code
+import gevent
+gevent.monkey.patch_all()
+
 import pymongo
 
 
