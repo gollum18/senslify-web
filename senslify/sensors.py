@@ -1,7 +1,6 @@
 import aiohttp, aiohttp_jinja2
 import bson, pymongo, simplejson
 
-from senslify.db import get_sensors, get_readings
 from senslify.sockets import message
 
 
@@ -19,7 +18,7 @@ async def info_handler(request):
     # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
     sensor = request.query['sensor']
-    group = request.query['group]
+    group = request.query['group']
     host = request.app['config'].host
     port = ':' + request.app['config'].port
     # TODO: Remove the hard-coded dependency here
@@ -31,7 +30,8 @@ async def info_handler(request):
     try:
         # TODO: It may prove more prudent to just pass the request to the 
         #   db class
-        readings = get_readings(request.app['db'], sensor, group, num_readings)
+        async for batch in app['db'].get_readings(sensor, group, num_readings):
+            pass
     except pymongo.errors.ConnectionFailure as e:
         status = 403
         if request.app['config'].debug:
@@ -81,11 +81,11 @@ async def sensors_handler(request):
         raise aiohttp.web.HTTPFound(location=location)
     group = request.query['group']
     status = 200
-    sensors = None
+    sensors = []
     try:
-        sensors = get_sensors(request.app['db'], group)
-        for sensor in sensors:
-            sensor['url'] = build_info_url(request, sensor)
+        async for batch in request.app[db].get_sensors(request.app['db'], group):
+            for sensor in batch:
+                sensor['url'] = build_info_url(request, sensor)
     except pymongo.errors.ConnectionFailure as e:
         status = 403
         if request.app['config'].debug:

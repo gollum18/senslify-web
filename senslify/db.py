@@ -1,102 +1,185 @@
-# make pymongo work with async code
-import gevent
-gevent.monkey.patch_all()
-
 import pymongo
 
-
-def create_pymongo(app):
-    '''
-    Defines a method for safely initializing the database connection.
-    Arguments:
-        app: The web application utilizing the database connection.
-    '''
-    app['db'] = pymongo.MongoClient(app['config'].mongo_url)
+from senslify import verify
 
 
-def dispose_pymongo(app):
+class MongoDBConn:
     '''
-    Defines a method for safely closing the database connection.
-    Arguments:
-        app: The web application utilizing the database connection.
+    Represents a unique connection to a MongoDB instance.
     '''
-    app['db'].close()
     
     
-def does_sensor_exist(db, sensor, group):
-    try:
-        return db.senslify.sensors.find_one({'sensor': sensor, 'group': group}) is not None
-    except pymongo.errors.ConnectionFailure as e:
-        raise e
-    except pymongo.errors.PyMongoError as e:
-        raise e
+    BATCH_SIZE = 100
+    
+    
+    def __init__(self, conn_str='mongodb://0.0.0.0:27001', db='senslify'):
+        '''
+        Returns an object capable of interacting with the Senslify MongoDB
+        database.
+        '''
+        self._conn = pymongo.MongoClient(conn_str)
+        self._db = db
         
         
-def does_group_exist(db, group):
-    try:
-        return db.senslify.groups.find_one({'group': group}) is not None
-    except pymongo.errors.ConnectionFailure as e:
-        raise e
-    except pymongo.errors.PyMongoError as e:
-        raise e
-
-
-def get_groups(db):
-    groups = []
-    try:
-        with db.senslify.groups.find() as cursor:
-            for group in cursor:
-                groups.append(group)
-    except pymongo.errors.ConnectionFailure as e:
-        raise e
-    except pymongo.errors.PyMongoError as e:
-        raise e
-    return groups
+    def init(self):
+        '''
+        Initializes the database with the initial table design dictated in
+        'Docs/DB.md'. This command will fail-soft if the database already 
+        exists.
+        '''
+        pass
     
     
-def get_rtypes(db):
-    rtypes = []
-    try:
-        with db.senslify.groups.find() as cursor:
-            for rtype in cursor:
-                rtypes.append(rtype)
-    except pymongo.errors.ConnectionFailure as e:
-        raise e
-    except pymongo.errors.PyMongoError as e:
-        raise e
-    return rtypes
+    async def does_sensor_exist(self, sensorid):
+        '''
+        Determines if the specified sensor exists in the database.
+        Arguments:
+            sensorid: The id of the sensor to check for.
+        '''
+        try:
+            return self._conn[self._db].senslify.readings.find_one(
+                    filter={'sensorid': sensorid}) is not None, e
+        except pymongo.errors.ConnectionFailure as e:
+            return False, e
+        except pymongo.errors.PyMongoError as e:
+            return False, e
+            
+            
+    async def does_group_exist(self, groupid):
+        '''
+        Determines if the specifiied group exists in the database.
+        Arguments:
+            groupid: The id of the group to check for.
+        '''
+        try:
+            return self._conn[self._db].senslify.groups.find_one(
+                    filter={'group': groupid}) is not None, None
+        except pymongo.errors.ConnectionFailure as e:
+            return False, e
+        except pymongo.errors.PyMongoError as e:
+            return False, e
 
 
-def get_sensors(db, group):
-    sensors = []
-    try:
-        with db.senslify.groups.find('group': group) as cursor:
-            for sensor in cursor:
-                sensors.append(sensor)
-    except pymongo.errors.ConnectionFailure as e:
-        raise e
-    except pymongo.errors.PyMongoError as e:
-        raise e
-    return sensors
+    async def get_groups(self, batch_size=BATCH_SIZE):
+        '''
+        Generator function used to get groups from the database.
+        Arguments:
+            batch_size: The number of groups to return in each batch.
+        '''
+        try:
+            with self._conn[self._db].senslify.groups.find(batch_size=batch_size) as cursor:
+                for batch in cursor:
+                    yield batch
+        except pymongo.errors.ConnectionFailure as e:
+            raise e
+        except pymongo.errors.PyMongoError as e:
+            raise e
+        
+        
+    async def get_rtypes(self, batch_size=BATCH_SIZE):
+        '''
+        Generator function used to get reading types from the database.
+        Arguments:
+            batch_size: The number of reading types to return in each batch.
+        '''
+        try:
+            with self._conn[self._db].senslify.rtypes.find(batch_size=batch_size) as cursor:
+                for batch in cursor:
+                    yield batch
+        except pymongo.errors.ConnectionFailure as e:
+            raise e
+        except pymongo.errors.PyMongoError as e:
+            raise e
 
 
-def get_readings(db, sensor, group, limit=100):
-    readings = []
-    try:
-        # TODO: Only want to select the most recent readings
-        with db.senslify.groups.find({'sensor': sensor, 'group': group}).limit(100) as cursor:
-            for reading in cursor:
-                readings.append(reading)
-    except pymongo.errors.ConnectionFailure as e:
-        raise e
-    except pymongo.errors.PyMongoError as e:
-        raise e
-    return readings
-    
-    
-def insert_reading(db, reading):
-    # only insert if the reading contains a sensor and group
-    if 'sensor' not in reading or 'group' not in reading:
-        return
-    # make sure that the sensor and group already exist
-    
+    async def get_sensors(self, groupid, batch_size=BATCH_SIZE):
+        '''
+        Generator function used to get sensors from the database.
+        Arguments:
+            groupid: The id of the group to return sensors from.
+            batch_size: The number of sensors to return in a single batch.
+        '''
+        try:
+            with self._conn[self._db].senslify.readings.find(
+                    filter={'groupid': groupid}, 
+                    projection={}, 
+                    batch_size=batch_size) as cursor:
+                for batch in cursor:
+                    yield batch
+        except pymongo.errors.ConnectionFailure as e:
+            raise e
+        except pymongo.errors.PyMongoError as e:
+            raise e
+
+
+    async def get_readings(self, sensorid, groupid, batch_size=BATCH_SIZE, 
+            limit=BATCH_SIZE):
+        '''
+        Generator function for retrieving readings from the database.
+        Arguments:
+            sensorid: The id of the sensor to return readings on.
+            groupid: The id of the group the sensor belongs to.
+            limit: The number of readings to return in a single call.
+        '''
+        try:
+            # TODO: Only want to select the most recent readings
+            with self._conn[self._db].senslify.readings.find(
+                    filter={'sensorid': sensorid, 
+                            'groupid': groupid}).limit(limit) as cursor:
+                for batch in cursor:
+                    yield batch
+        except pymongo.errors.ConnectionFailure as e:
+            raise e
+        except pymongo.errors.PyMongoError as e:
+            raise e
+
+
+    async def insert_reading(self, reading):
+        '''
+        Inserts a single reading into the database.
+        Arguments:
+            reading: The reading to insert into the database, should be a
+            Python dict object.
+        Returns:
+            A pair in the form (result, reason) where:
+                result: A boolean, whether the documents were inserted.
+                reason: An exception if an exception occurred.
+        '''
+        # only insert if the reading contains a sensor and group
+        if not verify.verify_reading(reading):
+            return False, None
+        try:
+            self._conn[self._db].insert_one(reading)
+        except pymongo.errors.ConnectionFailure as e:
+            return False, e
+        except pymongo.errors.PyMongoError as e:
+            return False, e
+        return True, None
+        
+        
+    async def insert_readings(self, readings, batch_size=BATCH_SIZE):
+        '''
+        Inserts multiple readings into the database.
+        Arguments:
+            readings: A list of readings to insert into the database, should be
+            a Python dict object.
+            batch_size: The amount of readings to insert per batch.
+        Returns:
+            A pair in the form (result, reason) where:
+                result: A boolean, whether the documents were inserted.
+                reason: An exception if an exception occurred.
+        '''
+        if not map(verify.verify_reading, readings):
+            return False, None
+        try:
+            index = 0
+            lim = len(readings)
+            while step < lim:
+                step = batch_size if index + batch_size < lim else lim
+                self._conn[self._db].insert_many(readings[index:index+step])
+                index += step
+        except pymongo.errors.ConnectionFailure as e:
+            return False, e
+        except pymongo.errors.PyMongoError as e:
+            return False, e
+        return True, None

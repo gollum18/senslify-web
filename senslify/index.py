@@ -1,4 +1,4 @@
-import aiohttp_jinja2
+import aiohttp, aiohttp_jinja2
 import pymongo
 
 
@@ -26,8 +26,8 @@ async def index_handler(request):
     groups = []
     try:
         # get the group information from the database
-        with request.app['db'].senslify.groups.find() as cursor:
-            for group in cursor:
+        async for batch in request.app['db'].get_groups():
+            for group in batch:
                 group['url'] = build_sensors_url(request, url)
                 groups.append(group)
     except pymongo.errors.ConnectionFailure as e:

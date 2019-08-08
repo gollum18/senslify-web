@@ -1,8 +1,12 @@
+# monkey patch everything ahead of time
+from gevent import monkey
+monkey.patch_all()
+
 import asyncio, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
 import config
 
-from senslify.db import create_pymongo, dispose_pymongo
+from senslify.db import MongoDBConn
 from senslify.index import index_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import ws_handler
@@ -32,6 +36,9 @@ def build_app(config_file=
 
     # setup the root url for static content like js/css
     app['static_root_url'] = '/static'
+    
+    # get the database connection
+    app['db'] = MongoDBConn(conn_str=app['config'].conn_str)
 
     # register resources for the routes
     app.router.add_resource(r'/', name='index')
@@ -45,9 +52,6 @@ def build_app(config_file=
     app.router.add_route('GET', '/sensors/info', info_handler)
     app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
-
-    # create the database connection
-    create_pymongo(app)
 
     # return the application
     return app
