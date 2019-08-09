@@ -6,7 +6,9 @@ import asyncio, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
 import config
 
-from senslify.db import MongoDBConn
+# Change this import if you want to use a different provider
+#   You'll have to implement one though as I only provide MongoDB
+from senslify.db import MongoProvider
 from senslify.index import index_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import ws_handler

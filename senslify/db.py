@@ -26,7 +26,7 @@ class DatabaseProvider:
     interface and implement its methods in order to provide an alternative
     '''
     
-    # The number of records to return in a single batch from a MongoDB call
+    # The number of records to return in a single batch from a database call
     BATCH_SIZE = 100
     
     
@@ -86,7 +86,6 @@ class DatabaseProvider:
         
     
     async def get_readings(self, sensorid, groupid, batch_size=BATCH_SIZE, 
-            limit=BATCH_SIZE):
             limit=BATCH_SIZE):
         '''
         Generator function for retrieving readings from the database.
@@ -159,11 +158,11 @@ class MongoProvider(DatabaseProvider):
         'Docs/DB.md'. This command will fail-soft if the database already 
         exists.
         '''
-        # see if the database already exists, prompt for deletion
+        # TODO: see if the database already exists, prompt for deletion
         if input('Senslify Database detected, do you want to delete it? [y|n]: ').lower() == 'y':
             print('Warning: Deleting Senslify database!')
             try:
-                self._conn[self._db].drop_database()
+                self._conn.drop_database(self._db)
             except pymongo.errors.ConnectionFailure as e:
                 raise e
             except pymongo.errors.PyMongoError as e:
@@ -172,13 +171,13 @@ class MongoProvider(DatabaseProvider):
             # otherwise exit the method, no initialization needed
             return
         # create the indexes on the collections in the database
-        self._conn[self._db].groups.create_index(("groupid": pymongo.ASCENDING))
-        self._conn[self._db].rtypes.create_index(("rtypeid": pymongo.ASCENDING))
+        self._conn[self._db].groups.create_index("groupid", unique=True)
+        self._conn[self._db].rtypes.create_index("rtypeid", unique=True)
         self._conn[self._db].readings.create_index([
-            ("sensorid": pymongo.ASCENDING),
-            ("groupid": pymongo.ASCENDING),
-            ("rtypeid": pymongo.ASCENDING),
-            ("ts": pymongo.ASCENDING)]
+            ("sensorid", pymongo.ASCENDING),
+            ("groupid", pymongo.ASCENDING),
+            ("rtypeid", pymongo.ASCENDING),
+            ("ts", pymongo.ASCENDING)], unique=True
         )
         
     
@@ -212,7 +211,7 @@ class MongoProvider(DatabaseProvider):
             return False, e
 
 
-    async def get_groups(self, batch_size=BATCH_SIZE):
+    async def get_groups(self, batch_size=DatabaseProvider.BATCH_SIZE):
         '''
         Generator function used to get groups from the database.
         Arguments:
@@ -228,7 +227,7 @@ class MongoProvider(DatabaseProvider):
             raise e
         
         
-    async def get_rtypes(self, batch_size=BATCH_SIZE):
+    async def get_rtypes(self, batch_size=DatabaseProvider.BATCH_SIZE):
         '''
         Generator function used to get reading types from the database.
         Arguments:
@@ -244,7 +243,7 @@ class MongoProvider(DatabaseProvider):
             raise e
 
 
-    async def get_sensors(self, groupid, batch_size=BATCH_SIZE):
+    async def get_sensors(self, groupid, batch_size=DatabaseProvider.BATCH_SIZE):
         '''
         Generator function used to get sensors from the database.
         Arguments:
@@ -264,8 +263,8 @@ class MongoProvider(DatabaseProvider):
             raise e
 
 
-    async def get_readings(self, sensorid, groupid, batch_size=BATCH_SIZE, 
-            limit=BATCH_SIZE):
+    async def get_readings(self, sensorid, groupid, batch_size=DatabaseProvider.BATCH_SIZE, 
+            limit=DatabaseProvider.BATCH_SIZE):
         '''
         Generator function for retrieving readings from the database.
         Arguments:
@@ -309,7 +308,7 @@ class MongoProvider(DatabaseProvider):
         return True, None
         
         
-    async def insert_readings(self, readings, batch_size=BATCH_SIZE):
+    async def insert_readings(self, readings, batch_size=DatabaseProvider.BATCH_SIZE):
         '''
         Inserts multiple readings into the database.
         Arguments:
