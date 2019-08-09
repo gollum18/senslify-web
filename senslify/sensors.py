@@ -137,5 +137,5 @@ async def upload_handler(request):
             else:
                 text = 'HTTP RESPONSE 500:\nAn error has occurred with the database!'
         # send the message to the room
-        await message(json['sensorid'], json)
+        await message(request.app['rooms'], json['sensorid'], json)
     return aiohttp.web.Response(text=text, status=status)

@@ -1,3 +1,11 @@
+# Name: __init__.py
+# Since: ~Jun 30th, 2019
+# Author: Christen Ford
+# Description: Serves as the entry point into the Senslify web application.
+#   Contains a factory function to setup and configure the application
+#   as well as a way to launch the application.
+
+
 # monkey patch everything ahead of time
 from gevent import monkey
 monkey.patch_all()
@@ -6,14 +14,14 @@ import asyncio, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
 import config
 
-# Change this import if you want to use a different provider
-#   You'll have to implement one though as I only provide MongoDB
-from senslify.db import MongoProvider
+# Change the Provider import here if you want to use different one
+#   You'll need to change it below too where I have marked
+from senslify.db import database_shutdown_handler, MongoProvider
 
 # Import the various route handlers
 from senslify.index import index_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
-from senslify.sockets import ws_handler
+from senslify.sockets import socket_shutdown_handler, ws_handler
 
 
 def build_app(config_file=
@@ -28,6 +36,7 @@ def build_app(config_file=
         An instance of the senslify web application configured with the
         settings found in the config_file.
     '''
+    
     # create the application and setup the file loader
     app = aiohttp.web.Application()
     loader=jinja2.FileSystemLoader(
@@ -41,10 +50,14 @@ def build_app(config_file=
     # setup the root url for static content like js/css
     app['static_root_url'] = '/static'
     
-    # get the database connection
+    # setup the database connection
+    #   change the provider here if you want to use a different provider
     app['db'] = MongoProvider(conn_str=app['config'].conn_str)
-    # initialize the database, prompts the user for some information
+    app['db'].open()
     app['db'].init()
+    
+    # setup the ws rooms
+    app['rooms'] = dict()
 
     # register resources for the routes
     app.router.add_resource(r'/', name='index')
@@ -58,6 +71,10 @@ def build_app(config_file=
     app.router.add_route('GET', '/sensors/info', info_handler)
     app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
+    
+    # register any shutdown handlers
+    app.on_shutdown.append(database_shutdown_handler)
+    app.on_shutdown.append(socket_shutdown_handler)
 
     # return the application
     return app

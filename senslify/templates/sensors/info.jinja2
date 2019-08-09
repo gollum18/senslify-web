@@ -61,7 +61,7 @@
         // Defines a method for closing the socket connection when navigating away
         $(window).on("unload", function(e) {
             // Send a message to the server to close the connection
-            ws.send(JSON.stringify({'cmd': 'CLOSE'}));
+            ws.send(JSON.stringify({'cmd': 'CLOSE', 'sensorid': sensorid}));
             // Close the connection
             ws.close();
         });
@@ -122,7 +122,7 @@
             // get the selected rtype
             rt = $("#sel_rtype").value();
             // create the rtype switch message
-            msg = {'cmd': , 'STREAM', 'rt': rt};
+            msg = {'cmd': , 'STREAM', 'sensorid': sensorid, 'rt': rt};
             // send it to the server
             ws.send(JSON.stringify(msg));
         }

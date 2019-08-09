@@ -26,9 +26,19 @@
 #   for all possible situations - CF
 
 
+from contextlib import contextmanager
+
 import pymongo
 
 from senslify import verify
+
+
+async def database_shutdown_handler(app):
+    '''
+    Defines a handler for gracefully shutting down the application database.
+    '''
+    if 'db' in app:
+        await app['db'].close()
 
 
 class DatabaseProvider:
@@ -42,6 +52,31 @@ class DatabaseProvider:
     
     # The number of documents to return in a single database call
     DOC_LIMIT= 100
+    
+    
+    def __init__(self, conn_str, db):
+        self._conn_str = conn_str
+        self._db = db
+        self._open = False
+    
+    
+    @staticmethod
+    @contextmanager
+    def get_connection(conn_str, db):
+        '''
+        Gets a connection to the backing database server.
+        This method shall be implemented as a generator function, shall yield
+        an instance of a DatabaseProvider, and shall close the provider when
+        done.
+        '''
+        raise NotImplementedError
+        
+        
+    async def close(self):
+        '''
+        Closes the connection to the backing database provider.
+        '''
+        raise NotImplementedError
     
     
     def init(self):
@@ -161,6 +196,21 @@ class DatabaseProvider:
             groupid: The id of the group the sensorboard belongs to.
         '''
         raise NotImplementedError
+        
+        
+    def is_open(self):
+        return self._open
+        
+        
+    def open(self):
+        '''
+        Opens a connection to the backing database server.
+        Returns: boolean, error
+            boolean: Whether the connection was opened or not.
+            error: None if the connection opened ok, an error otherwise.
+        '''
+        raise NotImplementedError
+        
 
 
 class MongoProvider(DatabaseProvider):
@@ -184,10 +234,37 @@ class MongoProvider(DatabaseProvider):
     def __init__(self, conn_str='mongodb://0.0.0.0:27001', db='senslify'):
         '''
         Returns an object capable of interacting with the Senslify MongoDB
-        database.
+        database. You must manually open the connection by calling open()
+        on the provider before you can use the providers methods.
         '''
-        self._conn = pymongo.MongoClient(conn_str)
-        self._db = db
+        DatabaseProvider.__init__(self, conn_str, db)
+    
+    
+    @staticmethod
+    @contextmanager
+    def get_connection(conn_str, db):
+        '''
+        Generator function that creates a temporary MongoProvider instance to
+        be used within a context manager.
+        
+        This method shall be implemented as a generator function, shall yield
+        an instance of a DatabaseProvider, and shall close the provider when
+        done.
+        '''
+        conn = MongoProvider(conn_str, db)
+        conn.open()
+        yield conn
+        conn.close()
+        
+        
+    async def close(self):
+        '''
+        Closes the connection to the backing database provider. Does nothing
+        if the connection is not opened.
+        '''
+        if self._open:
+            self._conn.close()
+            self._open = False
         
         
     def init(self):
@@ -196,6 +273,9 @@ class MongoProvider(DatabaseProvider):
         'Docs/DB.md'. This command will fail-soft if the database already 
         exists.
         '''
+        if not self._open:
+            print('Cannot initialize database, connection not open!')
+            return
         print('Initializing database...')
         if self._db in self._conn.list_database_names():
             if input('Senslify Database detected, do you want to delete it? [y|n]: ').lower() == 'y':
@@ -249,6 +329,9 @@ class MongoProvider(DatabaseProvider):
             groupid: The id of the group to check for.
             deployment: The deployment of the group.
         '''
+        if not self._open:
+            print('Cannot determine if group exists, database connection not open!')
+            return
         try:
             return self._conn[self._db].groups.find_one(
                 filter={'groupid': groupid}) is not None
@@ -264,6 +347,9 @@ class MongoProvider(DatabaseProvider):
         Arguments:
             rtypeid: The id of the rtype to check for.
         '''
+        if not self._open:
+            print('Cannot determine if rtype exists, database connection not open!')
+            return
         try:
             return self._conn[self._db].rtypes.find_one(
                 filter={'rtypeid': rtypeid}) is not None
@@ -279,6 +365,9 @@ class MongoProvider(DatabaseProvider):
         Arguments:
             sensorid: The id of the sensor to check for.
         '''
+        if not self._open:
+            print('Cannot determine if sensor exists, database connection not open!')
+            return
         try:
             return self._conn[self._db].sensors.find_one(
                     filter={'sensorid': sensorid,
@@ -295,6 +384,9 @@ class MongoProvider(DatabaseProvider):
         Arguments:
             batch_size: The number of groups to return in each batch.
         '''
+        if not self._open:
+            print('Cannot get groups, database connection not open!')
+            return
         try:
             with self._conn[self._db].groups.find() as cursor:
                 for doc in cursor:
@@ -314,6 +406,9 @@ class MongoProvider(DatabaseProvider):
             groupid: The id of the group the sensor belongs to.
             limit: The number of readings to return in a single call.
         '''
+        if not self._open:
+            print('Cannot get readings, database connection not open!')
+            return
         try:
             # TODO: Only want to select the most recent readings
             with self._conn[self._db].readings.find(
@@ -333,6 +428,9 @@ class MongoProvider(DatabaseProvider):
         Arguments:
             batch_size: The number of reading types to return in each batch.
         '''
+        if not self._open:
+            print('Cannot get rtypes, database connection not open!')
+            return
         try:
             with self._conn[self._db].rtypes.find(
                     batch_size=batch_size) as cursor:
@@ -351,6 +449,9 @@ class MongoProvider(DatabaseProvider):
             groupid: The id of the group to return sensors from.
             batch_size: The number of sensors to return in a single batch.
         '''
+        if not self._open:
+            print('Cannot get sensors, database connection not open!')
+            return
         try:
             with self._conn[self._db].sensors.find(
                     filter={'groupid': groupid}) as cursor:
@@ -368,6 +469,9 @@ class MongoProvider(DatabaseProvider):
         Arguements:
             groupid: The id of the group.
         '''
+        if not self._open:
+            print('Cannot insert group, database connection not open!')
+            return
         try:
             if not self.does_group_exist(groupid):
                 self._conn[self._db].insert_one({"groupid": groupid})
@@ -388,6 +492,9 @@ class MongoProvider(DatabaseProvider):
                 result: A boolean, whether the documents were inserted.
                 reason: An exception if an exception occurred.
         '''
+        if not self._open:
+            print('Cannot insert reading, database connection not open!')
+            return
         # only insert if the reading contains a sensor and group
         if not verify.verify_reading(reading):
             return False, None
@@ -425,6 +532,9 @@ class MongoProvider(DatabaseProvider):
                 result: A boolean, whether the documents were inserted.
                 reason: An exception if an exception occurred.
         '''
+        if not self._open:
+            print('Cannot insert readings, database connection not open!')
+            return
         #TODO: Some sort of verification needs performed on the readings
         #   maybe we can only insert readings that verify? idk for now
         if not map(verify.verify_reading, readings):
@@ -450,9 +560,25 @@ class MongoProvider(DatabaseProvider):
             sensorid: The id assigned to the sensorboard.
             groupid: The id of the group the sensorboard belongs to.
         '''
+        if not self._open:
+            print('Cannot insert sensor, database connection not open!')
+            return
         try:
             self._conn[self._db].insert_one({'sensorid': sensorid, 'groupid': groupid})
         except pymongo.errors.ConnectionFailure as e:
             return False, e
         except pymongo.errors.PyMongoError as e:
             return False, e
+        
+        
+    def open(self):
+        '''
+        Opens a connection to the backing database server.
+        '''
+        if not self._open:
+            try:
+                self._conn = pymongo.MongoClient(self._conn_str)
+                self._open = True
+            except pymongo.errors.PyMongoError as e:
+                print('Error: Cannot continue, there was a problem opening the database connection!\n{}'.format(str(e)))
+                sys.exit(-1)
