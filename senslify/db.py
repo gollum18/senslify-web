@@ -45,7 +45,7 @@ class DatabaseProvider:
         Arguments:
             sensorid: The id of the sensor to check for.
         '''
-        pass NotImplementedError
+        raise NotImplementedError
         
         
     async def does_group_exist(self, groupid):
