@@ -2,7 +2,7 @@
 Welcome to Senslify. Senslify is a web visualization tool for dislaying archived and live sensor data in real-time. Senslify makes extensive use of asynchronous programming as well as modern advancements in web streaming to provide a modern approach to sensor visualization.
 
 ## Dependencies
-Senslifes server is written in pure Python3 and has the following dependencies.
+Senslifies server is written in pure Python3 and has the following dependencies.
 + [aiodns](https://pypi.org/project/aiodns/)
 + [aiohttp](https://pypi.org/project/aiohttp/)
 + [aiohttp-jinja2](https://pypi.org/project/aiohttp-jinja2/)
@@ -39,7 +39,7 @@ its not currently themed as of yet).
 Chart.js is a free graphing/charting client side Javascript library for displaying datapoints in real-time. I considered several alternatives before
 coming across Chart.js but most were paid/non open-source, while Chart.js
 was an antithesis to both. Plus it nicely handles automatic resizing, and animation. It also integrates well with bootstrap. Sensor data is displayed
-in real-time using [WebSockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API).
+in real-time using WebSockets - [RFC 6455](https://tools.ietf.org/html/rfc6455), [Mozilla API](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API).
 
 
 Finally Senslify relies on the following external programs:
