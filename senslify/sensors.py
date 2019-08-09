@@ -114,17 +114,15 @@ async def upload_handler(request):
     text = 'Request processed successfully!'
     # It should be safe to insert the msg directly, but I still
     #   want to explicitly convert the msg to BSON for safety reasons
-    json = simplejson.dumps(request.query['msg'])
+    doc = simplejson.loads(request.query['msg'])
     # TODO: Perform verification on the data passed to the handler
-    if json['sensorid'] is None:
+    if doc['sensorid'] is None:
         status = 400
         text = 'You must supply a sensor ID in your message.'
     if status == 200:
-        # upload the received message to the database
-        doc = bson.BSON.encode(json)
         try:
-            await request.app['db'].insert_one(doc)
-        except pymongo.errors.ConnectionFalure as e:
+            await request.app['db'].insert_reading(doc)
+        except pymongo.errors.ConnectionFailure as e:
             status = 500
             if request.app['config'].debug:
                 text = 'HTTP RESPONSE 500:\n{}'.format(str(e))
@@ -137,5 +135,5 @@ async def upload_handler(request):
             else:
                 text = 'HTTP RESPONSE 500:\nAn error has occurred with the database!'
         # send the message to the room
-        await message(request.app['rooms'], json['sensorid'], json)
+        await message(request.app['rooms'], doc['sensorid'], doc)
     return aiohttp.web.Response(text=text, status=status)

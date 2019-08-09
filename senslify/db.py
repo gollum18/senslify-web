@@ -322,12 +322,11 @@ class MongoProvider(DatabaseProvider):
         ])
             
             
-    async def does_group_exist(self, groupid, deployment):
+    async def does_group_exist(self, groupid):
         '''
         Determines if the specifiied group exists in the database.
         Arguments:
             groupid: The id of the group to check for.
-            deployment: The deployment of the group.
         '''
         if not self._open:
             print('Cannot determine if group exists, database connection not open!')
@@ -453,7 +452,7 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get sensors, database connection not open!')
             return
         try:
-            with self._conn[self._db].sensors.find(
+            with self._conn[self._db].groups.find(
                     filter={'groupid': groupid}) as cursor:
                 for doc in cursor:
                     yield doc
@@ -473,8 +472,8 @@ class MongoProvider(DatabaseProvider):
             print('Cannot insert group, database connection not open!')
             return
         try:
-            if not self.does_group_exist(groupid):
-                self._conn[self._db].insert_one({"groupid": groupid})
+            if not await self.does_group_exist(groupid):
+                self._conn[self._db].groups.insert_one({"groupid": groupid})
         except pymongo.errors.ConnectionFailure as e:
             raise e
         except pymongo.errors.PyMongoError as e:
@@ -501,7 +500,7 @@ class MongoProvider(DatabaseProvider):
         try:
             sensorid = reading['sensorid']
             groupid = reading['groupid']
-            deployment = reading['deployment']
+            rtypeid = reading['rtypeid']
             # insert the sensor if it does not exist
             if not await self.does_sensor_exist(sensorid, groupid):
                 await self.insert_sensor(sensorid, groupid)
@@ -510,9 +509,10 @@ class MongoProvider(DatabaseProvider):
                 await self.insert_group(groupid)
             # make sure that the rtype exists, exit otherwise
             if not await self.does_rtype_exist(rtypeid):
+                print('rtype:', rtypeid, 'not found in database!')
                 return
             # insert the reading into the database
-            self._conn[self._db].insert_one(reading)
+            self._conn[self._db].readings.insert_one(reading)
         except pymongo.errors.ConnectionFailure as e:
             return False, e
         except pymongo.errors.PyMongoError as e:
@@ -544,7 +544,7 @@ class MongoProvider(DatabaseProvider):
             lim = len(readings)
             while step < lim:
                 step = batch_size if index + batch_size < lim else lim - index
-                self._conn[self._db].insert_many(readings[index:index+step])
+                self._conn[self._db].readings.insert_many(readings[index:index+step])
                 index += step
         except pymongo.errors.ConnectionFailure as e:
             return False, e
@@ -564,7 +564,7 @@ class MongoProvider(DatabaseProvider):
             print('Cannot insert sensor, database connection not open!')
             return
         try:
-            self._conn[self._db].insert_one({'sensorid': sensorid, 'groupid': groupid})
+            self._conn[self._db].sensors.insert_one({'sensorid': sensorid, 'groupid': groupid})
         except pymongo.errors.ConnectionFailure as e:
             return False, e
         except pymongo.errors.PyMongoError as e:

@@ -4,7 +4,6 @@
 # Description: Contains useful methods for verifying Senslify data objects.
 
 
-@staticmethod
 def verify_reading(reading):
     '''
     Determines if a reading is in the correct format.

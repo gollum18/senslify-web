@@ -38,7 +38,7 @@
     <!-- The below script handles WebSocket and chart interaction -->
     <script>
         const readings_size = {{ num_readings }};  // The max size of the stack
-        var rt; // The current readiing type
+        var rtypeid; // The current readiing type
         var readings;  // The display for the most recent readings
         var chart;  // The chart canvas itself
         // Get the sensor
@@ -78,10 +78,8 @@
             //  the server responds with JSON objects encoded as Strings,
             //  decode the string to a JSON object so we can work with it
             var pkt = JSON.parse(event.data);
-            
             // get the command from the server
             var cmd = pkt.cmd;
-            
             // route the message to the appropriate handler
             if (cmd === "READING") {
                 reading_handler(pkt);
@@ -120,9 +118,9 @@
          */
         function change_stream_handler() {
             // get the selected rtype
-            rt = $("#sel_rtype").value();
+            rtypeid = $("#sel_rtype").value();
             // create the rtype switch message
-            msg = {'cmd': , 'STREAM', 'sensorid': sensorid, 'rt': rt};
+            msg = {'cmd': , 'STREAM', 'sensorid': sensorid, 'rtypeid': rtypeid};
             // send it to the server
             ws.send(JSON.stringify(msg));
         }
