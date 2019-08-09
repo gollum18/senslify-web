@@ -97,6 +97,22 @@ class Room:
         self.__q.put(_PrioritizedItem(ts, msg))
         
         
+    def broadcasting(self):
+        '''
+        Returns whether or not the room is broadcasting messages to its
+        participants.
+        '''
+        return self.__handle.cancelled()
+        
+        
+    def start(self):
+        '''
+        Starts broadcasting messages.
+        '''
+        if self.__handle.cancelled():
+            self.__handle = self.__loop.call_soon(self.broadcast)
+        
+        
     async def start(self):
         if self._btask.cancelled():
             self._btask = await self._loop.create_task(self.__broadcast())

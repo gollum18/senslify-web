@@ -1,36 +1,59 @@
 # Senslify
 Welcome to Senslify. Senslify is a web visualization tool for dislaying archived and live sensor data in real-time. Senslify makes extensive use of asynchronous programming as well as modern advancements in web streaming to provide a modern approach to sensor visualization.
 
-# Dependencies
-Senslifes server is written in pure Python3 and has the following dependencies.
-+ [aiodns]()
-+ [aiohttp]()
-+ [aiohttp-jinja2]()
-+ [aiomongo]()
-+ [cchardet]()
+## Dependencies
+Senslifies server is written in pure Python3 and has the following dependencies.
++ [aiodns](https://pypi.org/project/aiodns/)
++ [aiohttp](https://pypi.org/project/aiohttp/)
++ [aiohttp-jinja2](https://pypi.org/project/aiohttp-jinja2/)
++ [cchardet](https://pypi.org/project/cchardet/)
++ [gevent](https://pypi.org/project/gevent/)
++ [pymongo](https://pypi.org/project/pymongo/)
++ [sphinx](https://pypi.org/project/Sphinx/)
 
 
-`aiohttp-jinja2` and `aiohttp-sse` are extensions to the `aiohttp` asynchronous web framework that respectively provide jinja2 templating and server-side events support to `aiohttp`. Server side events provide the live charting functionality of Senslify.
+`aiohttp-jinja2` is an extension to the `aiohttp` asynchronous web framework that provides jinja2 templating to aiohttp (jinja2 can best be seen in frameworks like Flask).
 
 
 `aiodns` and `cchardet` are technically optional dependencies. They are not required to run the server, but provide additional support that increase the servers efficiency. As such, they are recommended.
 
 
-`aiomongo` is an asyncio port of the official PyMongo MongoDB Python driver. Its authors claim that it passes all of the same tests that the PyMongo driver does, but it is not mature and is still developing software. That said, this project makes no use of PyMongo's more advanced features aside from basic CRUD operations, so as long as the `aiomongo` package does not terribly break, it should be fine to use.
+I employ `gevent` primarily as a means to make the `pymongo` MongoDB
+connector async compatible. PyMongo is generally already async compatible
+but an overlay has to be constructed on top of the driver to make it work.
+I had considered using a library like Motor or aiomongo, but for reasons
+documented elsewhere in this project, I have decided to stick with PyMongo.
 
 
 In addition to the above Python3 requirements, Senslify automatically pulls in the following Javascript and CSS libraries client side:
-+ [Bootstrap]()
-+ [Chart.js]()
-+ [JQuery]()
-+ [Popper]()
++ [Bootstrap](https://getbootstrap.com/)
++ [Chart.js](https://www.chartjs.org/)
++ [JQuery](https://jquery.com/)
++ [Popper](https://popper.js.org/)
 
 
-Bootstrap provides the theming functionality for 
+Bootstrap provides the theming functionality for the web application (although
+its not currently themed as of yet).
 
 
-There was a good deal of time spent trying to find a charting library that allowed dynamic resizing and animation functionality all in the same package while still mainintaing true open-source status. Chart.js meets all of the requirements needed for this project, and is completely free to use.
+Chart.js is a free graphing/charting client side Javascript library for displaying datapoints in real-time. I considered several alternatives before
+coming across Chart.js but most were paid/non open-source, while Chart.js
+was an antithesis to both. Plus it nicely handles automatic resizing, and animation. It also integrates well with bootstrap. Sensor data is displayed
+in real-time using WebSockets - [RFC 6455](https://tools.ietf.org/html/rfc6455), [Mozilla API](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API).
 
 
 Finally Senslify relies on the following external programs:
-+ [MongoDB]()
++ [MongoDB](https://www.mongodb.com/)
+
+
+While Senslify is setup to use MongoDB, it does not have to. I have recently
+generisized the database interface so users of this software should just be 
+able to implement their own database interface on top of a connector of their
+choice, as long as the connector is async compatible.
+
+
+## Documentation
+Much of the documentation for this project is auto-generated via Sphinx.
+However, there are certain documents (found in the 'Root/Docs' folder) that 
+contain additional information regarding the Senslify project such as a
+formal description of the structure of the database.

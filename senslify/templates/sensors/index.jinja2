@@ -4,6 +4,18 @@
 
 {% block header %}
     <h1>{{ title }} - Senslify</h1>
+    <h5>Select a group from the list below to see its sensors:</h5>
 {% endblock %}
-{% block content %}{% endblock %}
+{% block content %}
+    <ul id="group_list">
+    {% for group in groups %}
+        <li>
+            <a href="{{ group.url }}"
+               alt="Group: {{ group.name }}">
+                Group: {{ group.name }}
+            </a>
+        </li>
+    {% endfor %}
+    </ul>
+{% endblock %}
 {% block footer %}{% endblock %}

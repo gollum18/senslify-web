@@ -1,14 +1,21 @@
+# monkey patch everything ahead of time
+from gevent import monkey
+monkey.patch_all()
+
 import asyncio, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
 import config
 
-from senslify.db import create_pymongo, dispose_pymongo
+from senslify.db import MongoDBConn
 from senslify.index import index_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import ws_handler
 
 
-def build_app(config_file='./senslify.conf'):
+def build_app(config_file=
+    os.path.join(
+        os.path.dirname(
+            os.path.realpath(__file__)), 'senslify.conf')):
     '''
     Defines a factory function for creating the senslify web application.
     Arguments:
@@ -29,6 +36,11 @@ def build_app(config_file='./senslify.conf'):
 
     # setup the root url for static content like js/css
     app['static_root_url'] = '/static'
+    
+    # get the database connection
+    app['db'] = MongoProvider(conn_str=app['config'].conn_str)
+    # initialize the database, prompts the user for some information
+    app['db'].init()
 
     # register resources for the routes
     app.router.add_resource(r'/', name='index')
@@ -42,9 +54,6 @@ def build_app(config_file='./senslify.conf'):
     app.router.add_route('GET', '/sensors/info', info_handler)
     app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
-
-    # create the database connection
-    create_pymongo(app)
 
     # return the application
     return app
