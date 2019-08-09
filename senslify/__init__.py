@@ -38,7 +38,9 @@ def build_app(config_file=
     app['static_root_url'] = '/static'
     
     # get the database connection
-    app['db'] = MongoDBConn(conn_str=app['config'].conn_str)
+    app['db'] = MongoProvider(conn_str=app['config'].conn_str)
+    # initialize the database, prompts the user for some information
+    app['db'].init()
 
     # register resources for the routes
     app.router.add_resource(r'/', name='index')
