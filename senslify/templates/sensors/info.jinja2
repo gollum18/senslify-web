@@ -18,10 +18,9 @@
             <!-- Used to indicate the reading type to send from server -->
             <label for="sel_rtype">Reading: </label>
             <select id="sel_rtype" onchange="change_stream_handler()">
-                <option value="humidity">Humidity</option>
-                <option value="light">Light</option>
-                <option value="temp">Temperature</option>
-                <option value="voltage">Voltage</option>
+                {% for rtype in rtypes %}
+                    <option value="{{ rtype.rtypeid }}">{{ rtype.rtype }}</option>
+                {% endfor %}
             </select>
         </div>
     </section>
@@ -39,19 +38,17 @@
     <!-- The below script handles WebSocket and chart interaction -->
     <script>
         const readings_size = {{ num_readings }};  // The max size of the stack
-        var sel_rtype;  // The selector for choosing which reading to receive
+        var rt; // The current readiing type
         var readings;  // The display for the most recent readings
         var chart;  // The chart canvas itself
         // Get the sensor
-        var sensor = {{ sensor }}; 
+        var sensorid = {{ sensorid }};
         // Used for sending and receiving updates to/from the server
         //  Exists for the duration of the user's visit to the page
         var ws = new WebSocket('{{ ws_url }}');
 
         // Defines a method for setting up variables once the DOM tree loads
         $(document).on("ready", function(e) {
-            // get a reference to the reading select
-            sel_rtype = document.getElementById('sel_rtype');
             // get a reference to the chart and its context for drawing
             var ctx = $('#canvas_chart');
             chart = new Chart(ctx, {
@@ -80,14 +77,14 @@
             // get the response sent by the server
             //  the server responds with JSON objects encoded as Strings,
             //  decode the string to a JSON object so we can work with it
-            var msg = JSON.parse(event.data);
+            var pkt = JSON.parse(event.data);
             
             // get the command from the server
-            var cmd = msg.cmd;
+            var cmd = pkt.cmd;
             
             // route the message to the appropriate handler
             if (cmd === "READING") {
-                reading_handler(msg.msg);
+                reading_handler(pkt);
             }
         }
         
@@ -98,24 +95,36 @@
         // Sends a join request to the server
         function join_handler() {
             // construct the request for the server
-            msg = {'cmd': 'JOIN', 'sensor': sensor};
+            msg = {'cmd': 'JOIN', 'sensorid': sensorid};
             // send the request
             ws.send(JSON.stringify(msg));
         }
         
-        // Handles readings as they come in from the server
-        function reading_handler(reading) {
-            if (validate_reading(reading)) {
+        
+        /**
+         * Defines a function for handling received readings from the server.
+         */
+        function reading_handler(pkt) {
+            if (validate_reading(pkt)) {
                 // update the chart
-                update_chart(reading);
+                update_chart(pkt);
                 // update the list
-                update_list(reading);
+                update_list(pkt);
             }
         } 
 
-        // Handles changing the reading that the page is receiving for the sensor
+        
+        /**
+         * Defines a function for changing the type of readings that the client 
+         * gets streamed from the server.
+         */
         function change_stream_handler() {
-            
+            // get the selected rtype
+            rt = $("#sel_rtype").value();
+            // create the rtype switch message
+            msg = {'cmd': , 'STREAM', 'rt': rt};
+            // send it to the server
+            ws.send(JSON.stringify(msg));
         }
         
         /*
@@ -124,10 +133,18 @@
 
         // Validates data received from the server
         function validate_reading(reading) {
+            // make sure all required fields are present
+            if (!reading.hasOwnProperty('rtype')) {
+                return false;
+            }
             if (!reading.hasOwnProperty('ts') || reading.ts <= 0) {
                 return false;
             }
             if (!reading.hasOwnProperty('value') || reading.value < 0) {
+                return false;
+            }
+            // pass on packets that do not match the rtype
+            if (pkt.rtype != rt) {
                 return false;
             }
             return true;

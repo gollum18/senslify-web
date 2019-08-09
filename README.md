@@ -1,6 +1,18 @@
 # Senslify
 Welcome to Senslify. Senslify is a web visualization tool for dislaying archived and live sensor data in real-time. Senslify makes extensive use of asynchronous programming as well as modern advancements in web streaming to provide a modern approach to sensor visualization.
 
+
+## A Note on Security
+The database for Senslify is intentionally unsecured as Senslify is a front-end
+for a research project. If and when I decide to release Senslify in the wild,
+I will implement security on the database side of the application. However, 
+as what is currently a private use project, I (as well as others in the 
+project) do not want to introduce additional complexity in running the 
+software. If you fork the software and want to use it yourself, then I implore
+you to implement some sort of database security before deploying the
+software, otherwise, you'll be in for some difficulties in the near future.
+
+
 ## Dependencies
 Senslifies server is written in pure Python3 and has the following dependencies.
 + [aiodns](https://pypi.org/project/aiodns/)

@@ -12,8 +12,8 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'senslify'
-DESCRIPTION = ''
+NAME = 'Senslify'
+DESCRIPTION = 'A real-time web application for displaying sensor data.'
 URL = 'https://github.com/gollum18/senslify'
 EMAIL = 'c.t.ford@vikes.csuohio.edu'
 AUTHOR = 'Christen Ford'
@@ -24,7 +24,7 @@ VERSION = '0.1.0'
 REQUIRED = [
     "aiohttp", "jinja2", "aiohttp-jinja2", "cchardet",
     "config", "aiodns", "pymongo", "simplejson",
-    "markupsafe", "gevent"
+    "markupsafe", "gevent", "sphinx"
 ]
 
 # What packages are optional?

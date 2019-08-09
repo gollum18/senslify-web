@@ -9,6 +9,8 @@ import config
 # Change this import if you want to use a different provider
 #   You'll have to implement one though as I only provide MongoDB
 from senslify.db import MongoProvider
+
+# Import the various route handlers
 from senslify.index import index_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import ws_handler
@@ -65,9 +67,9 @@ def main():
     '''
     Defines the main entry point of the program.
 
-    Installing senslify through setup.py will register the 'senslify-start-server'
-    command. Invoking the 'senslify-start-server' command from the terminal or
-    command line will invoke this command and start the server.
+    Installing senslify through setup.py will register the 'senslify' command.
+    Invoking the 'senslify' command from the command line or terminal will
+    start the server.
     '''
     # get the app
     if len(sys.argv) == 2:

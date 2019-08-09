@@ -31,6 +31,7 @@ class Room:
         Arguments:
             ws: The WebSocket to check for.
         '''
+        
         return ws in self._clients
 
 
@@ -39,8 +40,11 @@ class Room:
         Defines a task for broadcasting messages to subscribed WebSockets.
         '''
         while True:
+            data = self._q.get()
+            # the actual reading is stored in the item field
+            #   informs the client that the pkt is a reading
+            data.item['cmd'] = 'READING'
             for ws in self._clients:
-                data = self._q.get()
                 await ws.send_str(simplejson.dumps(data.item))
             await asyncio.sleep(1/self._delay)
             
@@ -68,14 +72,14 @@ class Room:
         room._btask = await self._loop.create_task(self.__broadcast())
         # return the room
         return room
-
+    
 
     async def join(self, ws):
         '''
         Defines a method for subscribing WebSockets to receive messages from this
         room.
         '''
-        if ws not in self._clients:
+        if not self.contains(ws):
             self._clients.add(ws)
 
 
@@ -105,15 +109,10 @@ class Room:
         return self.__handle.cancelled()
         
         
-    def start(self):
-        '''
-        Starts broadcasting messages.
-        '''
-        if self.__handle.cancelled():
-            self.__handle = self.__loop.call_soon(self.broadcast)
-        
-        
     async def start(self):
+        '''
+        Starts broadcasting received messages to WebSockets in the room.
+        '''
         if self._btask.cancelled():
             self._btask = await self._loop.create_task(self.__broadcast())
 
@@ -158,17 +157,22 @@ async def ws_handler(request):
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
             js = simplejson.loads(msg.data)
-            sensor = js['sensor']
-            if js['cmd'] == 'JOIN':
-                if sensor not in _rooms.keys():
-                    _rooms[sensor] = Room()
-                await _rooms[sensor].join(ws)
+            cmd = js['cmd'];
+            sensorid = js['sensorid']
+            if cmd == 'JOIN':
+                if sensorid not in _rooms.keys():
+                    _rooms[sensorid] = Room()
+                await _rooms[sensorid].join(ws)
             # close the connection if the client requested it
-            elif js['cmd'] == 'CLOSE':
+            elif cmd == 'CLOSE':
                 # remove the client from the sensors room
-                await _rooms[js['sensor']].leave(ws)
+                await _rooms[sensorid].leave(ws)
                 # close the connection
                 await ws.close()
+            # handler for rtype switch command
+            if cmd == 'STREAM':
+                # TODO: Update the rtype for the socket
+                pass
         elif msg.type == aiohttp.WSMsgType.ERROR:
             for room in _rooms:
                 # this is an O(1) operation, so this should be fine
