@@ -17,7 +17,7 @@
         <div>
             <!-- Used to indicate the reading type to send from server -->
             <label for="sel_rtype">Reading: </label>
-            <select id="sel_rtype" onchange="change_stream_handler()">
+            <select id="sel_rtype" onchange="change_stream_handler();">
                 {% for rtype in rtypes %}
                     <option value="{{ rtype.rtypeid }}">{{ rtype.rtype }}</option>
                 {% endfor %}
@@ -38,7 +38,6 @@
     <!-- The below script handles WebSocket and chart interaction -->
     <script>
         const readings_size = {{ num_readings }};  // The max size of the stack
-        var rtypeid; // The current readiing type
         var readings;  // The display for the most recent readings
         var chart;  // The chart canvas itself
         // Get the sensor
@@ -118,9 +117,9 @@
          */
         function change_stream_handler() {
             // get the selected rtype
-            rtypeid = $("#sel_rtype").value();
+            var rtypeid = $("select#sel_rtype option:checked").val();
             // create the rtype switch message
-            msg = {'cmd': , 'STREAM', 'sensorid': sensorid, 'rtypeid': rtypeid};
+            msg = {'cmd': 'STREAM', 'sensorid': sensorid, 'rtypeid': rtypeid};
             // send it to the server
             ws.send(JSON.stringify(msg));
         }

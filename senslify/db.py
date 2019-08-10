@@ -431,8 +431,7 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get rtypes, database connection not open!')
             return
         try:
-            with self._conn[self._db].rtypes.find(
-                    batch_size=batch_size) as cursor:
+            with self._conn[self._db].rtypes.find() as cursor:
                 for batch in cursor:
                     yield batch
         except pymongo.errors.ConnectionFailure as e:
@@ -452,8 +451,7 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get sensors, database connection not open!')
             return
         try:
-            with self._conn[self._db].groups.find(
-                    filter={'groupid': groupid}) as cursor:
+            with self._conn[self._db].sensors.find({'groupid': groupid}) as cursor:
                 for doc in cursor:
                     yield doc
         except pymongo.errors.ConnectionFailure as e:
