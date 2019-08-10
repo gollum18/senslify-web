@@ -387,7 +387,8 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get groups, database connection not open!')
             return
         try:
-            with self._conn[self._db].groups.find() as cursor:
+            with self._conn[self._db].groups.find({}, 
+                    {'_id': False}) as cursor:
                 for doc in cursor:
                     yield doc
         except pymongo.errors.ConnectionFailure as e:
@@ -411,8 +412,9 @@ class MongoProvider(DatabaseProvider):
         try:
             # TODO: Only want to select the most recent readings
             with self._conn[self._db].readings.find(
-                    filter={'sensorid': sensorid, 
-                            'groupid': groupid}).limit(limit) as cursor:
+                    {'sensorid': sensorid, 
+                     'groupid': groupid}, 
+                    {'_id': False}).limit(limit) as cursor:
                 for doc in cursor:
                     yield doc
         except pymongo.errors.ConnectionFailure as e:
@@ -431,9 +433,9 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get rtypes, database connection not open!')
             return
         try:
-            with self._conn[self._db].rtypes.find() as cursor:
-                for batch in cursor:
-                    yield batch
+            with self._conn[self._db].rtypes.find({}, {'_id': False}) as cursor:
+                for doc in cursor:
+                    yield doc
         except pymongo.errors.ConnectionFailure as e:
             raise e
         except pymongo.errors.PyMongoError as e:
@@ -451,7 +453,7 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get sensors, database connection not open!')
             return
         try:
-            with self._conn[self._db].sensors.find({'groupid': groupid}) as cursor:
+            with self._conn[self._db].sensors.find({'groupid': groupid}, {'_id': False}) as cursor:
                 for doc in cursor:
                     yield doc
         except pymongo.errors.ConnectionFailure as e:

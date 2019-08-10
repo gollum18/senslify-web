@@ -125,6 +125,8 @@ async def upload_handler(request):
         text = 'You must supply a sensor ID in your message.'
     if status == 200:
         try:
+            # send the message to the room
+            await message(request.app['rooms'], doc['sensorid'], doc)
             await request.app['db'].insert_reading(doc)
         except pymongo.errors.ConnectionFailure as e:
             status = 500
@@ -138,6 +140,4 @@ async def upload_handler(request):
                 text = 'HTTP RESPONSE 500:\n{}'.format(str(e))
             else:
                 text = 'HTTP RESPONSE 500:\nAn error has occurred with the database!'
-        # send the message to the room
-        await message(request.app['rooms'], doc['sensorid'], doc)
     return aiohttp.web.Response(text=text, status=status)

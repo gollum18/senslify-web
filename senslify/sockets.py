@@ -68,14 +68,16 @@ async def message(rooms, sensorid, msg):
     # only send the message if the room exists
     if not _does_room_exist(rooms, sensorid):
         return
+    # add the command to the message
+    msg['cmd'] = 'READING'
     # get the rtype, so we only send to clients that ask for it specifically
-    rt = msg['rt']
+    rtypeid = msg['rtypeid']
     msg_str = simplejson.dumps(msg)
     # steps through all clients in the room
-    async for ws, rtype in rooms[sensorid].items():
+    for ws, rtype in rooms[sensorid].items():
         # if the rtypes match up then send the message
-        if rt == rtype:
-            await ws.send(msg)
+        if rtype == rtypeid:
+            await ws.send_str(msg_str)
 
 
 # Defines the handler for the info page WebSocket
@@ -85,7 +87,7 @@ async def ws_handler(request):
     Arguments:
         request: The request that initiated the WebSocket connection.
     '''
-    ws = aiohttp.web.WebSocketResponse()
+    ws = aiohttp.web.WebSocketResponse(autoclose=False, heartbeat=3)
     await ws.prepare(request)
 
     async for msg in ws:
@@ -98,11 +100,15 @@ async def ws_handler(request):
             # close the connection if the client requested it
             elif cmd == 'CLOSE':
                 await _leave(request.app['rooms'], sensorid, ws)
+                await ws.close()
+                break
             # handler for rtype switch command
             if cmd == 'STREAM':
-                await _change_stream(request.app['rooms'], sensorid, ws, js['rt'])   
+                await _change_stream(request.app['rooms'], sensorid, ws, js['rtypeid'])   
         elif msg.type == aiohttp.WSMsgType.ERROR:
             ws.send_str('WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception()))
+            
+    print('RETURNING SOCKET HANDLER')
 
     return ws
     
@@ -115,7 +121,8 @@ async def socket_shutdown_handler(app):
         app: The web application hosting the WebSocket rooms.
     '''
     for sensorid in app['rooms'].keys():
-        for ws in app['rooms'].keys():
-            await ws.close(code=aiohttp.WSCloseCOode.GOING_AWAY,
-                message='Server shutdown!')
+        for ws in app[sensorid].keys():
+            if not ws.closed:
+                await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY,
+                    message='Server shutdown!')
 

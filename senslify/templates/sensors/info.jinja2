@@ -1,6 +1,9 @@
 {% extends 'base.jinja2' %}
 
-{% block head %}{% endblock %}
+{% block head %}    
+    <!-- Pulls down the Chart.js script for this file only. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
+{% endblock %}
 
 {% block header %}
     <h1>{{ title }} - Senslify</h1>
@@ -26,38 +29,27 @@
     </section>
     <section>
         <h3>Last {{ num_readings }} Readings for Sensor {{ sensor }}:</h3>
-        <ul id="readings_display"></ul>
+        <ol id="readings_display"></ol>
             {% for reading in readings %}<li>{{ reading }}<\li>{% endfor %}
-        </ul>
+        </ol>
     </section>
 {% endblock %}
 
 {% block footer %}
-    <!-- Pulls down the Chart.js script for this file only. -->
-    <script href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
     <!-- The below script handles WebSocket and chart interaction -->
     <script>
         const readings_size = {{ num_readings }};  // The max size of the stack
-        var readings;  // The display for the most recent readings
-        var chart;  // The chart canvas itself
+        var readings = document.getElementById("readings_display");  // The display for the most recent readings
+        var chart = new Chart($('#canvas_chart'), {
+            type: 'line'
+        });
         // Get the sensor
         var sensorid = {{ sensorid }};
         // Used for sending and receiving updates to/from the server
         //  Exists for the duration of the user's visit to the page
         var ws = new WebSocket('{{ ws_url }}');
 
-        // Defines a method for setting up variables once the DOM tree loads
-        $(document).on("ready", function(e) {
-            // get a reference to the chart and its context for drawing
-            var ctx = $('#canvas_chart');
-            chart = new Chart(ctx, {
-                type: 'line'
-            });
-            // get a reference to the stack display
-            readings = $('#readings_display');
-        });
-
-        // Defines a method for closing the socket connection when navigating away
+        // Defines a method for closing the socket connection when navigating away or refreshing the page
         $(window).on("unload", function(e) {
             // Send a message to the server to close the connection
             ws.send(JSON.stringify({'cmd': 'CLOSE', 'sensorid': sensorid}));
@@ -81,6 +73,7 @@
             var cmd = pkt.cmd;
             // route the message to the appropriate handler
             if (cmd === "READING") {
+                console.log(pkt);
                 reading_handler(pkt);
             }
         }
@@ -131,17 +124,17 @@
         // Validates data received from the server
         function validate_reading(reading) {
             // make sure all required fields are present
-            if (!reading.hasOwnProperty('rtype')) {
+            if (!reading.hasOwnProperty('rtypeid')) {
                 return false;
             }
             if (!reading.hasOwnProperty('ts') || reading.ts <= 0) {
                 return false;
             }
-            if (!reading.hasOwnProperty('value') || reading.value < 0) {
+            if (!reading.hasOwnProperty('val') || reading.val < 0) {
                 return false;
             }
             // pass on packets that do not match the rtype
-            if (pkt.rtype != rt) {
+            if (reading.rtypeid != $("select#sel_rtype option:checked").val()) {
                 return false;
             }
             return true;
@@ -151,7 +144,7 @@
         function update_chart(reading) {
             // update the data array
             chart.data.datasets.forEach((dataset) => {
-                dataset.data.push({'x': reading.ts, 'y': readings.value})
+                dataset.data.push({'x': reading.ts, 'y': readings.val})
             });
 
             // updates the view on the chart
@@ -169,7 +162,8 @@
             
             // append the newest reading to the end of the display
             var node = document.createElement("LI");
-            var textNode = document.createTextNode(reading);
+            // lazily convert reading to a string
+            var textNode = document.createTextNode(JSON.stringify(reading));
             node.appendChild(textNode);
             readings.appendChild(node);
         }
