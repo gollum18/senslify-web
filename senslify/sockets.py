@@ -58,7 +58,7 @@ async def _change_stream(rooms, sensorid, ws, rtype):
     # check if the ws exists, return if so
     if not _does_ws_exist(rooms, sensorid, ws):
         return
-    rooms[sensorid][ws] = rtype
+    rooms[sensorid][ws] = int(rtype)
     
     
 async def message(rooms, sensorid, msg):
@@ -75,7 +75,6 @@ async def message(rooms, sensorid, msg):
     msg_str = simplejson.dumps(msg)
     # steps through all clients in the room
     for ws, rtype in rooms[sensorid].items():
-        # if the rtypes match up then send the message
         if rtype == rtypeid:
             await ws.send_str(msg_str)
 
@@ -88,6 +87,8 @@ async def ws_handler(request):
         request: The request that initiated the WebSocket connection.
     '''
     ws = aiohttp.web.WebSocketResponse(autoclose=False, heartbeat=3)
+    wsid = hash(ws)
+    sensorid = 0
     await ws.prepare(request)
 
     async for msg in ws:
@@ -104,11 +105,11 @@ async def ws_handler(request):
                 break
             # handler for rtype switch command
             if cmd == 'STREAM':
-                await _change_stream(request.app['rooms'], sensorid, ws, js['rtypeid'])   
+                await _change_stream(request.app['rooms'], sensorid, ws, js['rtypeid'])
         elif msg.type == aiohttp.WSMsgType.ERROR:
             ws.send_str('WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception()))
-            
-    print('RETURNING SOCKET HANDLER')
+    
+    await _leave(request.app['rooms'], sensorid, ws)
 
     return ws
     

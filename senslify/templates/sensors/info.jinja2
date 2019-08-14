@@ -13,7 +13,6 @@
     <h2>Displays Live Data and Recent Readings</h2>
     <section>
         <div>
-            <h3>Live Display for Sensor {{ sensor }}:</h3>
             <canvas id="canvas_chart" width="600" height="400"></canvas>
             <h6>Note: Live display will not update if the sensor is offline.</h6>
         </div>
@@ -28,7 +27,7 @@
         </div>
     </section>
     <section>
-        <h3>Last {{ num_readings }} Readings for Sensor {{ sensor }}:</h3>
+        <h3>Last {{ num_readings }} Readings for Sensor {{ sensorid }}:</h3>
         <ol id="readings_display"></ol>
             {% for reading in readings %}<li>{{ reading }}<\li>{% endfor %}
         </ol>
@@ -38,11 +37,19 @@
 {% block footer %}
     <!-- The below script handles WebSocket and chart interaction -->
     <script>
+        function createChart() {
+            return new Chart(document.getElementById("canvas_chart"), {
+                type: "line",
+                options = {
+                    display: true,
+                    text: "Time Series for Sensor {{ sensorid }}"
+                }
+            });
+        }
+        
         const readings_size = {{ num_readings }};  // The max size of the stack
         var readings = document.getElementById("readings_display");  // The display for the most recent readings
-        var chart = new Chart($('#canvas_chart'), {
-            type: 'line'
-        });
+        var chart = createChart();
         // Get the sensor
         var sensorid = {{ sensorid }};
         // Used for sending and receiving updates to/from the server
@@ -73,7 +80,6 @@
             var cmd = pkt.cmd;
             // route the message to the appropriate handler
             if (cmd === "READING") {
-                console.log(pkt);
                 reading_handler(pkt);
             }
         }
@@ -102,6 +108,20 @@
                 update_list(pkt);
             }
         } 
+        
+        
+        /**
+         *
+         */
+        function resetDisplay() {
+            // TODO: Reset the Chart
+            chart.destroy();
+            chart = createChart();
+            // Reset the list
+            while (readings.firstChild) {
+                readings.removeChild(readings.firstChild);
+            }
+        }
 
         
         /**
@@ -115,6 +135,8 @@
             msg = {'cmd': 'STREAM', 'sensorid': sensorid, 'rtypeid': rtypeid};
             // send it to the server
             ws.send(JSON.stringify(msg));
+            // reset the chart and list
+            resetDisplay();
         }
         
         /*
@@ -144,9 +166,10 @@
         function update_chart(reading) {
             // update the data array
             chart.data.datasets.forEach((dataset) => {
-                dataset.data.push({'x': reading.ts, 'y': readings.val})
+                dataset.data.push({
+                    'x': new Date(reading.ts), 'y': reading.val
+                });
             });
-
             // updates the view on the chart
             chart.update();
         }
