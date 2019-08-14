@@ -3,7 +3,6 @@ aiohttp-jinja2
 aiodns
 cchardet
 config
-dataclasses
 jinja2
 markupsafe
 pymongo
