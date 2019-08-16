@@ -10,7 +10,7 @@ def build_sensors_url(request, group):
         group: Group information on one group from the database.
     '''
     route = request.app.router['sensors'].url_for().with_query(
-        {'group': group['group']}
+        {'groupid': group['groupid']}
     )
     return route
 
@@ -26,10 +26,9 @@ async def index_handler(request):
     groups = []
     try:
         # get the group information from the database
-        async for batch in request.app['db'].get_groups():
-            for group in batch:
-                group['url'] = build_sensors_url(request, url)
-                groups.append(group)
+        async for group in request.app['db'].get_groups():
+            group['url'] = build_sensors_url(request, group)
+            groups.append(group)
     except pymongo.errors.ConnectionFailure as e:
         status = 403
         if request.app['config'].debug:

@@ -1,15 +1,30 @@
+# Name: __init__.py
+# Since: ~Jun 30th, 2019
+# Author: Christen Ford
+# Description: Serves as the entry point into the Senslify web application.
+#   Contains a factory function to setup and configure the application
+#   as well as a way to launch the application.
+
+
 # monkey patch everything ahead of time
 from gevent import monkey
 monkey.patch_all()
 
 import asyncio, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
-import config
+import config, simplejson
 
-from senslify.db import MongoDBConn
+# change the Provider import here if you want to use different one
+#   You'll need to change it below too where I have marked
+from senslify.db import database_shutdown_handler, MongoProvider
+
+# import the various route handlers
 from senslify.index import index_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
-from senslify.sockets import ws_handler
+from senslify.sockets import socket_shutdown_handler, ws_handler
+
+# import the filters module, import filters on an as needed basis
+import senslify.filters
 
 
 def build_app(config_file=
@@ -24,12 +39,22 @@ def build_app(config_file=
         An instance of the senslify web application configured with the
         settings found in the config_file.
     '''
+    
     # create the application and setup the file loader
     app = aiohttp.web.Application()
     loader=jinja2.FileSystemLoader(
         [os.path.join(os.path.dirname(__file__), "templates")]
     )
-    aiohttp_jinja2.setup(app, loader=loader)
+    
+    # setup any filters for the application to use
+    filters = {
+        "datetime": senslify.filters.filter_datetime, # i18n datetime filter
+        "simplejson_dumps": simplejson.dumps,
+        "rstring": senslify.filters.filter_reading # custom reading filter
+    }
+    
+    # setup the application
+    aiohttp_jinja2.setup(app, loader=loader, filters=filters)
 
     # setup the application configuration and any global variables
     app['config'] = config.Config(config_file)
@@ -37,10 +62,14 @@ def build_app(config_file=
     # setup the root url for static content like js/css
     app['static_root_url'] = '/static'
     
-    # get the database connection
+    # setup the database connection
+    #   change the provider here if you want to use a different provider
     app['db'] = MongoProvider(conn_str=app['config'].conn_str)
-    # initialize the database, prompts the user for some information
+    app['db'].open()
     app['db'].init()
+    
+    # setup the ws rooms
+    app['rooms'] = dict()
 
     # register resources for the routes
     app.router.add_resource(r'/', name='index')
@@ -54,6 +83,10 @@ def build_app(config_file=
     app.router.add_route('GET', '/sensors/info', info_handler)
     app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
+    
+    # register any shutdown handlers
+    app.on_shutdown.append(database_shutdown_handler)
+    app.on_shutdown.append(socket_shutdown_handler)
 
     # return the application
     return app
@@ -63,9 +96,9 @@ def main():
     '''
     Defines the main entry point of the program.
 
-    Installing senslify through setup.py will register the 'senslify-start-server'
-    command. Invoking the 'senslify-start-server' command from the terminal or
-    command line will invoke this command and start the server.
+    Installing senslify through setup.py will register the 'senslify' command.
+    Invoking the 'senslify' command from the command line or terminal will
+    start the server.
     '''
     # get the app
     if len(sys.argv) == 2:

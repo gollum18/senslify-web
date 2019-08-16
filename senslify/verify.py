@@ -4,7 +4,6 @@
 # Description: Contains useful methods for verifying Senslify data objects.
 
 
-@staticmethod
 def verify_reading(reading):
     '''
     Determines if a reading is in the correct format.
@@ -27,5 +26,7 @@ def verify_reading(reading):
         return False
     if 'val' not in reading:
         return False
+        
+    # TODO: Check the individual data fields as well
 
     return True

@@ -1,180 +1,160 @@
-import asyncio, dataclasses, queue, typing
-import aiohttp
+# Name: sockets.py
+# Since: ~Jul. 20th, 2019
+# Author: Christen Ford
+# Description: Defines a handler for the info page WebSocket as well as various
+#   helper functions.
+
+import asyncio, aiohttp
 import simplejson
 
+from senslify.filters import filter_reading
 
-# The way this module is setup may necessitate switching to a class-based view
-# Maps sensors to rooms
-_rooms = dict()
+# Define WebSocket command methods
 
-
-class Room:
+def _does_room_exist(rooms, sensorid):
     '''
-    Defines a class that simulates Socket.IO's concept of rooms.
-
-    A room contains a collection of connected aio.http.WebSocket objects.
     '''
-
-    @dataclasses.dataclass(order=True)
-    class _PrioritizedItem:
-        '''
-        Defines a class for prioritizing objects.
-        '''
-        priority: float
-        item: typing.Any=dataclasses.field(compare=False)
-        
-        
-    def __contains__(self, ws):
-        '''
-        Defines the contains method so users of the room may make use of the 'in'
-        keyword in their implementations.
-        Arguments:
-            ws: The WebSocket to check for.
-        '''
-        return ws in self._clients
+    if not sensorid in rooms:
+        return False
+    return True
 
 
-    async def __broadcast(self):
-        '''
-        Defines a task for broadcasting messages to subscribed WebSockets.
-        '''
-        while True:
-            for ws in self._clients:
-                data = self._q.get()
-                await ws.send_str(simplejson.dumps(data.item))
-            await asyncio.sleep(1/self._delay)
-            
-            
-    def is_empty(self):
-        '''
-        Determines if the room is empty or not.
-        '''
-        return len(self.__clients) == 0
-            
+def _does_ws_exist(rooms, sensorid, ws):
+    '''
+    '''
+    if not _does_room_exist(rooms, sensorid):
+        return False
+    if ws not in rooms[sensorid]:
+        return False
+    return True    
+
+
+async def _leave(rooms, sensorid, ws):
+    '''
+    Allows a WebSocket to leave a room
+    '''
+    # only delete the ws from the room if room exists and the ws is in the room
+    if not _does_ws_exist(rooms, sensorid, ws):
+        return
+    del rooms[sensorid][ws]
+
+
+async def _join(rooms, sensorid, ws):
+    '''
+    Allows a WebSocket to join a room.
+    '''
+    # create the room if it does not exist
+    if sensorid not in rooms:
+        rooms[sensorid] = dict()
+    # add the client to the room if its not already there, default to temp
+    if ws not in rooms[sensorid]:
+        rooms[sensorid][ws] = 0
+
+
+async def _change_stream(rooms, sensorid, ws, rtype):
+    '''
+    Changes the RType for a connected WebSocket
+    '''
+    # check if the ws exists, return if so
+    if not _does_ws_exist(rooms, sensorid, ws):
+        return
+    rooms[sensorid][ws] = int(rtype)
     
-    @staticmethod
-    async def new(maxsize=256, delay=500):
-        '''
-        Factory function for returning a new room.
-        
-        Call this function to get a new instance of this class.
-        '''
-        room = Room()
-        room._clients = set()
-        room._q = queue.PriorityQueue(maxsize=256)
-        room._delay = delay
-        # creates the broadcast loop and schedules it
-        room._loop = asyncio.new_event_loop()
-        room._btask = await self._loop.create_task(self.__broadcast())
-        # return the room
-        return room
-
-
-    async def join(self, ws):
-        '''
-        Defines a method for subscribing WebSockets to receive messages from this
-        room.
-        '''
-        if ws not in self._clients:
-            self._clients.add(ws)
-
-
-    async def leave(self, ws):
-        '''
-        Defines a method for unsubscribing WebSockets from receiving messages.
-        '''
-        if ws in self._clients:
-            self._clients.remove(ws)
-
-
-    async def receive(self, msg):
-        '''
-        Enqueues an item to the message queue.
-        Arguments:
-            msg: A dictionary containing reading information.
-        '''
-        ts = msg['ts']
-        self.__q.put(_PrioritizedItem(ts, msg))
-        
-        
-    def broadcasting(self):
-        '''
-        Returns whether or not the room is broadcasting messages to its
-        participants.
-        '''
-        return self.__handle.cancelled()
-        
-        
-    def start(self):
-        '''
-        Starts broadcasting messages.
-        '''
-        if self.__handle.cancelled():
-            self.__handle = self.__loop.call_soon(self.broadcast)
-        
-        
-    async def start(self):
-        if self._btask.cancelled():
-            self._btask = await self._loop.create_task(self.__broadcast())
-
-
-    def stop(self):
-        '''
-        Stops broadcasting messages.
-        '''
-        if not self._btask.cancelled():
-            self._btask.cancel()
-
-
-async def message(room, msg):
-    '''
-    Messages a room.
     
-    This method is called externally from the upload handler in the sensors.py
-    file. Do not call this method directly from this class.
-    Arguments:
-        room: The room to message.
-        msg: The message itself.
+async def message(rooms, sensorid, msg):
     '''
-    global _rooms
-    
-    if room in _rooms.keys():
-        if not _rooms[room].is_empty():
-            await _rooms[room].receive(msg)
+    Sends a message to the participants of a room.
+    '''
+    # only send the message if the room exists
+    if not _does_room_exist(rooms, sensorid):
+        return
+    # add additional fields to the message
+    # create the response object for the websocket
+    resp = dict()
+    resp['cmd'] = 'RESP_READING'
+    resp['readings'] = [{
+        'rtypeid': msg['rtypeid'],
+        'ts': msg['ts'],
+        'val': msg['val'],
+        'rstring': msg['rstring']
+    }]
+    # get the rtype, so we only send to clients that ask for it specifically
+    rtypeid = msg['rtypeid']
+    # steps through all clients in the room
+    for ws, rtype in rooms[sensorid].items():
+        if rtype == rtypeid:
+            await ws.send_str(simplejson.dumps(resp))
 
 
-# Defines a GET handler for WebSockets
+# Defines the handler for the info page WebSocket
 async def ws_handler(request):
     '''
     Handles request for the servers websocket address.
     Arguments:
         request: The request that initiated the WebSocket connection.
     '''
-    global _rooms
-
-    ws = aiohttp.web.WebSocketResponse()
+    sensorid = 0
+    
+    ws = aiohttp.web.WebSocketResponse(autoclose=False, heartbeat=3)
     await ws.prepare(request)
 
+    # TODO: There needs to be guards in the casting here
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
+            # decode the received message
+            #   every value in js will be a string, cast as necessary
             js = simplejson.loads(msg.data)
-            sensor = js['sensor']
-            if js['cmd'] == 'JOIN':
-                if sensor not in _rooms.keys():
-                    _rooms[sensor] = Room()
-                await _rooms[sensor].join(ws)
+            # make sure the cmd and sensorid fields are present, they are 
+            #   required for command execution
+            if 'cmd' not in js or 'sensorid' not in js:
+                continue
+            cmd = js['cmd'];
+            sensorid = int(js['sensorid'])
+            # adds the requesting websocket as a receiver for messages from
+            #   the indicated sensor
+            if cmd == 'RQST_JOIN':
+                await _join(request.app['rooms'], sensorid, ws)
             # close the connection if the client requested it
-            elif js['cmd'] == 'CLOSE':
-                # remove the client from the sensors room
-                await _rooms[js['sensor']].leave(ws)
-                # close the connection
+            elif cmd == 'RQST_CLOSE':
+                await _leave(request.app['rooms'], sensorid, ws)
                 await ws.close()
+                break
+            # handle requests from users to switch to a different reading type
+            elif cmd == 'RQST_STREAM':
+                if 'groupid' not in js or 'rtypeid' not in js:
+                    continue
+                groupid = js['groupid']
+                rtypeid = js['rtypeid']
+                # change the stream
+                await _change_stream(request.app['rooms'], sensorid, ws, rtypeid)
+                # construct a response containing the top 100 readings for the stream
+                resp = dict()
+                resp['cmd'] = 'RESP_STREAM'
+                readings = []
+                async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
+                    reading['rstring'] = filter_reading(reading)
+                    readings.append(reading)
+                resp['readings'] = readings
+                # send the response to the client
+                await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:
-            for room in _rooms:
-                # this is an O(1) operation, so this should be fine
-                if ws in room:
-                    await room.leave(ws)
-                    break
             ws.send_str('WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception()))
+    
+    await _leave(request.app['rooms'], sensorid, ws)
 
     return ws
+    
+    
+async def socket_shutdown_handler(app):
+    '''
+    Defines a handler for shutting down any connected WebSockets when the 
+    server goes down.
+    Arguments:
+        app: The web application hosting the WebSocket rooms.
+    '''
+    for sensorid in app['rooms'].keys():
+        for ws in app[sensorid].keys():
+            if not ws.closed:
+                await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY,
+                    message='Server shutdown!')
+

@@ -1,6 +1,9 @@
 {% extends 'base.jinja2' %}
 
-{% block head %}{% endblock %}
+{% block head %}    
+    <!-- Pulls down the Chart.js script for this file only. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
+{% endblock %}
 
 {% block header %}
     <h1>{{ title }} - Senslify</h1>
@@ -10,155 +13,228 @@
     <h2>Displays Live Data and Recent Readings</h2>
     <section>
         <div>
-            <h3>Live Display for Sensor {{ sensor }}:</h3>
             <canvas id="canvas_chart" width="600" height="400"></canvas>
             <h6>Note: Live display will not update if the sensor is offline.</h6>
         </div>
         <div>
             <!-- Used to indicate the reading type to send from server -->
             <label for="sel_rtype">Reading: </label>
-            <select id="sel_rtype" onchange="change_stream_handler()">
-                <option value="humidity">Humidity</option>
-                <option value="light">Light</option>
-                <option value="temp">Temperature</option>
-                <option value="voltage">Voltage</option>
+            <select id="sel_rtype" onchange="onStreamChanged();">
+                {% for rtype in rtypes %}
+                    <option value="{{ rtype.rtypeid }}">{{ rtype.rtype }}</option>
+                {% endfor %}
             </select>
         </div>
     </section>
     <section>
-        <h3>Last {{ num_readings }} Readings for Sensor {{ sensor }}:</h3>
-        <ul id="readings_display"></ul>
-            {% for reading in readings %}<li>{{ reading }}<\li>{% endfor %}
-        </ul>
+        <h3>Last {{ num_readings }} Readings for Sensor {{ sensorid }}:</h3>
+        <ol id="list_readings"></ol>
     </section>
 {% endblock %}
 
 {% block footer %}
-    <!-- Pulls down the Chart.js script for this file only. -->
-    <script href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
-    <!-- The below script handles WebSocket and chart interaction -->
+    <!-- The below script handles WebSocket and chart interaction. -->
     <script>
-        const readings_size = {{ num_readings }};  // The max size of the stack
-        var sel_rtype;  // The selector for choosing which reading to receive
-        var readings;  // The display for the most recent readings
-        var chart;  // The chart canvas itself
-        // Get the sensor
-        var sensor = {{ sensor }}; 
-        // Used for sending and receiving updates to/from the server
-        //  Exists for the duration of the user's visit to the page
-        var ws = new WebSocket('{{ ws_url }}');
-
-        // Defines a method for setting up variables once the DOM tree loads
-        $(document).on("ready", function(e) {
-            // get a reference to the reading select
-            sel_rtype = document.getElementById('sel_rtype');
-            // get a reference to the chart and its context for drawing
-            var ctx = $('#canvas_chart');
-            chart = new Chart(ctx, {
-                type: 'line'
-            });
-            // get a reference to the stack display
-            readings = $('#readings_display');
-        });
-
-        // Defines a method for closing the socket connection when navigating away
-        $(window).on("unload", function(e) {
-            // Send a message to the server to close the connection
-            ws.send(JSON.stringify({'cmd': 'CLOSE'}));
-            // Close the connection
+        
+        //
+        // Define all necessary script variables
+        //
+        
+        // the number of readings to retrieve from the server
+        const rlim = {{ num_readings }};
+        // the id of the sensor to receive messages for
+        const sensorid = {{ sensorid }};
+        // the id of the group the sensor belongs to
+        const groupid = {{ groupid }};
+        // the websocket for sending/receiving messages to/from the server
+        //  the websocket is constant as it persists for the life of the page
+        const ws = new WebSocket('{{ ws_url }}');
+        // stores a reference to the chart object for graphically displaying 
+        //  readings
+        var chart = null;
+        
+        //
+        // Define handlers for the window
+        //
+        
+        /**
+         * Fired when the user navigates away from the page.
+         * Signals a teardown of the WS at the server as well to teardown the
+         * WS on the client.
+         */
+        function onWindowUnload() {
+            var msg = {'cmd': 'RQST_CLOSE', 'sensorid': sensorid};
+            ws.send(JSON.stringify(msg));
             ws.close();
-        });
-
-        // Registers the JOIN request to be sent to the server when the 
-        //  WebSocket is open. This may fail, but is unlikely
-        ws.onopen = function(e) {
-            join_handler();
         }
-
-        // Receives information from the server
-        ws.onmessage = function(event) {
-            // get the response sent by the server
-            //  the server responds with JSON objects encoded as Strings,
-            //  decode the string to a JSON object so we can work with it
-            var msg = JSON.parse(event.data);
+        
+        // Register JQuery window event handlers
+        $(window).on("unload", onWindowUnload);
+        
+        //
+        // Define handlers for the WebSocket
+        //
+        
+        /**
+         * Client side WS handler that requests the server to enqueue the 
+         * WS representing this client to receive messages for the sensor
+         * indicated by sensorid.
+         */
+        function joinHandler() {
+            var rqst = {'cmd': 'RQST_JOIN', 'sensorid': sensorid};
+            ws.send(JSON.stringify(rqst));
+        }
+        
+        /**
+         * Client side WS handler that handles received messages (readings)
+         * from the server. The client only receives readings for the 
+         * sensorid and rtypeid that it has registered to receive updates on.
+         * @param resp The response from the server.
+         */
+        function readingHandler(resp) {
+            // get the list of readings
+            var rlist = $("#list_readings");
             
-            // get the command from the server
-            var cmd = msg.cmd;
+            // evict the oldest reading if at the limit
+            if (rlist.children().length === rlim) {
+                rlist.children().last().remove();
+            }
             
-            // route the message to the appropriate handler
-            if (cmd === "READING") {
-                reading_handler(msg.msg);
+            // add the reading to the front of the list
+            $('<li/>')
+                    .text(resp.readings[0].rstring)
+                    .prependTo($("#list_readings"));
+        }
+        
+        /**
+         * Client side WS handler that handles received messages (a dataset)
+         * from the server. The client receives an up-to-date dataset containing
+         * the top 100 most recent readings for the sensorid and rtypeid they
+         * are registered with.
+         * @param resp The response from the server.
+         */ 
+        function streamHandler(resp) {
+            // get the readings from the response
+            var readings = resp.readings;
+            
+            // reset the chart
+            resetChart(resp.readings);
+            
+            // reset the list
+            resetList(resp.readings)
+        }
+        
+        /**
+         * Client side WS handler that fires when the WebSocket first opens.
+         * This is used by the client to register the sensor it wants to
+         * receive updates for.
+         * @param err An error if one occurs.
+         */
+        function onWSOpen(err) {
+            joinHandler();
+            onStreamChanged();
+        }
+        
+        /**
+         *
+         */
+        function onWSReceive(msg) {
+            // Parse the response from the server
+            var resp = JSON.parse(msg.data);
+            
+            // route the message based on response command
+            if (resp.cmd === "RESP_READING") { // handles individual readings
+                readingHandler(resp);
+            } else if (resp.command = "RESP_STREAM") { // handles whole datasets
+                streamHandler(resp);
             }
         }
         
-        /*
-         * Define routing handlers for messages received by the server
-         */
+        // Register handlers for the WebSocket
+        ws.onopen = onWSOpen;
+        ws.onmessage = onWSReceive;
         
-        // Sends a join request to the server
-        function join_handler() {
-            // construct the request for the server
-            msg = {'cmd': 'JOIN', 'sensor': sensor};
-            // send the request
+        //
+        // Define additional support functions
+        //
+        
+        /**
+         * Constructs a new ChartJS line chart.
+         * @param raw_dataset The dataset to intialize the chart with.
+         */
+        function createChart(raw_dataset) {
+            // reverse the dataset, the server sends it in descending order on timestamp
+            raw_dataset.reverse();
+            
+            // construct the dataset
+            var dataset = [];
+            raw_dataset.forEach(function(reading) {
+                dataset.push({
+                    x: new Date(reading.ts),
+                    y: reading.val
+                });
+            });
+            
+            // get the context for the chart
+            var ctx = $('#canvas_chart')[0].getContext('2d');
+            
+            // return the chart
+            return new Chart(ctx, {
+                type: 'line',
+                data: dataset,
+                options: {
+                    display: true,
+                    text: "Time Series for Sensor: {{ sensorid }}"
+                }
+            });
+        }
+        
+        /**
+         * Resets the chart with a new dataset.
+         * @param dataset The dataset to load into the chart.
+         */
+        function resetChart(dataset) {
+            if (chart != null) {
+                // destroy the original chart
+                chart.destroy();
+            }
+            
+            // rebuild the chart
+            chart = createChart(dataset);
+        }
+        
+        /**
+         * Resets the list with a new dataset.
+         * @param dataset The dataset to load into the list.
+         */
+        function resetList(dataset) {
+            dataset.reverse();
+        
+            // empty display of all children
+            $("#list_readings").empty();
+            
+            // rebuild the list with the new values
+            dataset.forEach(function(reading) {
+                $('<li/>')
+                    .text(reading.rstring)
+                    .appendTo($("#list_readings"));
+            });
+        }
+        
+        /**
+         * Handles onchange events for the rtype selector.
+         */
+        function onStreamChanged() {
+            var rtypeid = $("#sel_rtype").val()
+            
+            var msg = {
+                'cmd': 'RQST_STREAM',
+                'sensorid': sensorid,
+                'groupid': groupid,
+                'rtypeid': rtypeid
+            };
+            
             ws.send(JSON.stringify(msg));
         }
-        
-        // Handles readings as they come in from the server
-        function reading_handler(reading) {
-            if (validate_reading(reading)) {
-                // update the chart
-                update_chart(reading);
-                // update the list
-                update_list(reading);
-            }
-        } 
-
-        // Handles changing the reading that the page is receiving for the sensor
-        function change_stream_handler() {
-            
-        }
-        
-        /*
-         * Defines support functions for the routing handlers
-         */
-
-        // Validates data received from the server
-        function validate_reading(reading) {
-            if (!reading.hasOwnProperty('ts') || reading.ts <= 0) {
-                return false;
-            }
-            if (!reading.hasOwnProperty('value') || reading.value < 0) {
-                return false;
-            }
-            return true;
-        }
-
-        // Defines a method for updating the chart when data is received
-        function update_chart(reading) {
-            // update the data array
-            chart.data.datasets.forEach((dataset) => {
-                dataset.data.push({'x': reading.ts, 'y': readings.value})
-            });
-
-            // updates the view on the chart
-            chart.update();
-        }
-        
-        // Defines a method for updating the reading display when a reading
-        //  comes in from the socket
-        function update_list(reading) {
-            // check if the output is full
-            if (readings.childElementCount === readings_size) {
-                // remove the oldest reading
-                readings.removeChild(readings.childNodes[0]);
-            }
-            
-            // append the newest reading to the end of the display
-            var node = document.createElement("LI");
-            var textNode = document.createTextNode(reading);
-            node.appendChild(textNode);
-            readings.appendChild(node);
-        }
-
     </script>
 {% endblock %}
