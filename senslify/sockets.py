@@ -156,5 +156,5 @@ async def socket_shutdown_handler(app):
     for sensor in app['rooms'].keys():
         for ws in app['rooms'][sensor].keys():
             if not ws.closed:
-                await ws.close(code=WSCloseCode.GOING_AWAY,
+                await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY,
                        message='Server shutdown')

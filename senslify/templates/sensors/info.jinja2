@@ -1,8 +1,13 @@
 {% extends 'base.jinja2' %}
 
-{% block head %}    
-    <!-- Pulls down the Chart.js script for this file only. -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
+{% block head %}
+    <!-- Pull down ChartJS for graphing and Moment for time -->
+    <script src="https://cdn.jsdelivr.net/combine/npm/moment@2.24.0,npm/chart.js@2.8.0"></script>
+    <!-- Hammer and ChartJS Zoom Extension -->
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.3"></script>
+    <!-- ChartJS Realtime Extension -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@latest/dist/chartjs-plugin-streaming.min.js"></script>
 {% endblock %}
 
 {% block header %}
@@ -40,6 +45,8 @@
         // Define all necessary script variables
         //
         
+        // The datetime format to use with moment.js - this filter is for localtime with seconds
+        const dtformat = 'LTS'
         // the number of readings to retrieve from the server
         const rlim = {{ num_readings }};
         // the id of the sensor to receive messages for
@@ -51,7 +58,7 @@
         const ws = new WebSocket('{{ ws_url }}');
         // stores a reference to the chart object for graphically displaying 
         //  readings
-        var chart = null;
+        var rtChart = null;
         
         //
         // Define handlers for the window
@@ -104,6 +111,17 @@
             $('<li/>')
                     .text(resp.readings[0].rstring)
                     .prependTo($("#list_readings"));
+                    
+            // add the reading to the chart
+            rtChart.data.datasets[0].data.push({
+                x: moment(resp.readings[0].ts).format(dtformat),
+                y: resp.readings[0].val
+            });
+            
+            // update the chart, keepiing the current animation
+            rtChart.update({
+                preservation: true
+            });
         }
         
         /**
@@ -118,7 +136,7 @@
             var readings = resp.readings;
             
             // reset the chart
-            resetChart(resp.readings);
+            resetChart();
             
             // reset the list
             resetList(resp.readings)
@@ -131,8 +149,12 @@
          * @param err An error if one occurs.
          */
         function onWSOpen(err) {
+            // Register a listener on the server
             joinHandler();
-            onStreamChanged();
+            // Only get the initial dataset when the document has loaded
+            $(document).ready(function() {
+                onStreamChanged();
+            });
         }
         
         /**
@@ -162,29 +184,55 @@
          * Constructs a new ChartJS line chart.
          * @param raw_dataset The dataset to intialize the chart with.
          */
-        function createChart(raw_dataset) {
-            // reverse the dataset, the server sends it in descending order on timestamp
-            raw_dataset.reverse();
-            
-            // construct the dataset
-            var dataset = [];
-            raw_dataset.forEach(function(reading) {
-                dataset.push({
-                    x: new Date(reading.ts),
-                    y: reading.val
-                });
-            });
-            
+        function createChart() {
             // get the context for the chart
             var ctx = $('#canvas_chart')[0].getContext('2d');
             
             // return the chart
             return new Chart(ctx, {
                 type: 'line',
-                data: dataset,
+                datasets: [{
+                    data: []
+                }],
                 options: {
-                    display: true,
-                    text: "Time Series for Sensor: {{ sensorid }}"
+                    // enable scaling in realtime
+                    scales: {
+                        xAxes: [{
+                            type: 'realtime'
+                        }]
+                    }
+                },
+                plugins: {
+                    zoom: {
+		                // Container for pan options
+		                pan: {
+			                enabled: true,
+			                mode: 'xy',
+			                rangeMin: {
+				                x: null,
+				                y: null
+			                },
+			                rangeMax: {
+				                x: null,
+				                y: null
+			                }
+		                },
+		                // Container for zoom options
+		                zoom: {
+			                enabled: true,
+			                drag: true,
+			                mode: 'xy',
+			                rangeMin: {
+				                x: null,
+				                y: null
+			                },
+			                rangeMax: {
+				                x: null,
+				                y: null
+			                },
+			                speed: 0.1
+		                }
+	                }
                 }
             });
         }
@@ -193,14 +241,14 @@
          * Resets the chart with a new dataset.
          * @param dataset The dataset to load into the chart.
          */
-        function resetChart(dataset) {
-            if (chart != null) {
+        function resetChart() {
+            if (rtChart != null) {
                 // destroy the original chart
-                chart.destroy();
+                rtChart.destroy();
             }
             
             // rebuild the chart
-            chart = createChart(dataset);
+            rtChart = createChart();
         }
         
         /**

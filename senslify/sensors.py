@@ -83,12 +83,11 @@ async def sensors_handler(request):
     Arguments:
         request: A aiohttp.web.Request object.
     '''
-    print('Request Hostname:', request.host)
-    
     # redirect to the index page if no group was provided
     if 'groupid' not in request.query:
         location = request.app.router['index'].url_for()
         raise aiohttp.web.HTTPFound(location=location)
+    # construct the response and return it
     group = int(request.query['groupid'])
     status = 200
     sensors = []
