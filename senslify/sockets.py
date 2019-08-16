@@ -152,9 +152,9 @@ async def socket_shutdown_handler(app):
     Arguments:
         app: The web application hosting the WebSocket rooms.
     '''
-    for sensorid in app['rooms'].keys():
-        for ws in app[sensorid].keys():
+    # TODO: This handler should close any open sockets
+    for sensor in app['rooms'].keys():
+        for ws in app['rooms'][sensor].keys():
             if not ws.closed:
                 await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY,
-                    message='Server shutdown!')
-
+                       message='Server shutdown')

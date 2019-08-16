@@ -27,6 +27,30 @@ from senslify.sockets import socket_shutdown_handler, ws_handler
 import senslify.filters
 
 
+def get_local_ip():
+    '''
+    Determines the ip of the machine on the local network. Does not work if
+    behind a NAT/firewall.
+    
+    Taken From: https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
+    
+    This method is used to determine the ip address for use with the 
+    WebSocket.
+    '''
+    import socket
+    
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+
 def build_app(config_file=
     os.path.join(
         os.path.dirname(
@@ -70,6 +94,8 @@ def build_app(config_file=
     
     # setup the ws rooms
     app['rooms'] = dict()
+    
+    # get the ws url
 
     # register resources for the routes
     app.router.add_resource(r'/', name='index')
@@ -106,7 +132,7 @@ def main():
     else:
         app = build_app()
     # launch the web app
-    aiohttp.web.run_app(app, host=app['config'].host, port=app['config'].port)
+    aiohttp.web.run_app(app, host=get_local_ip(), port=app['config'].port)
 
 
 if __name__ == '__main__':
