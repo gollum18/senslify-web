@@ -17,10 +17,10 @@
 {% block content %}
     <h2>Displays Live Data and Recent Readings</h2>
     <section>
-        <div>
-            <canvas id="canvas_chart" width="600" height="400"></canvas>
-            <h6>Note: Live display will not update if the sensor is offline.</h6>
+        <div class="chart-container" style="position: relative; height:40vh; width:80vw">
+            <canvas id="canvas_chart"></canvas>
         </div>
+        <h6>Note: Live display will not update if the sensor is offline.</h6>
         <div>
             <!-- Used to indicate the reading type to send from server -->
             <label for="sel_rtype">Reading: </label>
@@ -45,8 +45,6 @@
         // Define all necessary script variables
         //
         
-        // The datetime format to use with moment.js - this filter is for localtime with seconds
-        const dtformat = 'LTS'
         // the number of readings to retrieve from the server
         const rlim = {{ num_readings }};
         // the id of the sensor to receive messages for
@@ -114,7 +112,7 @@
                     
             // add the reading to the chart
             rtChart.data.datasets[0].data.push({
-                x: moment(resp.readings[0].ts).format(dtformat),
+                x: moment.unix(resp.readings[0].ts).utc(),
                 y: resp.readings[0].val
             });
             
@@ -191,14 +189,32 @@
             // return the chart
             return new Chart(ctx, {
                 type: 'line',
-                datasets: [{
-                    data: []
-                }],
+                data: {
+                    datasets: [{
+                        label: "Value over Time",
+                        backgroundColor: "rgb(255, 99, 132)",
+                        borderColor: "rgb(255, 99, 132)",
+                        fill: false,
+                        data: []
+                    }]
+                },
                 options: {
+                    responsiveness: true,
+                    maintainAspectRatio: false,
+                    title: {
+                        display: true,
+                        text: "Time Series for Sensor {{ sensorid }}"
+                    },
                     // enable scaling in realtime
                     scales: {
                         xAxes: [{
-                            type: 'realtime'
+                            type: 'realtime',
+                            distribution: "series",
+                            display: true
+                        }],
+                        yAxes: [{
+                            type: 'linear',
+                            display: true
                         }]
                     }
                 },
