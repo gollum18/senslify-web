@@ -14,9 +14,9 @@ def filter_datetime(value, format='medium'):
         format: The format to use, either medium or full.
     '''
     if format == 'full':
-        format="EEEE, d. MMMM y 'at' HH:mm"
+        format="EEEE, d. MMMM y 'at' HH:mm:ss"
     elif format == 'medium':
-        format="EE dd.MM.y HH:mm"
+        format="EE dd.MM.y HH:mm:ss"
     return format_datetime(value, format)
     
 
