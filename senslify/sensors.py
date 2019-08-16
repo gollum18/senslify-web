@@ -1,7 +1,15 @@
+# Name: sensors.py
+# Since: ~Jul 28th, 2019
+# Author: Christen Ford
+# Description: Handles routes intended for the /sensors base route.
+
+
 import aiohttp, aiohttp_jinja2
 import bson, pymongo, simplejson
 
+from senslify.filters import filter_reading
 from senslify.sockets import message
+from senslify.verify import verify_reading
 
 
 @aiohttp_jinja2.template('sensors/info.jinja2')
@@ -17,8 +25,9 @@ async def info_handler(request):
         raise aiohttp.web.HTTPFound(location=location)
     # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
-    sensorid = request.query['sensorid']
-    groupid = request.query['groupid']
+    sensorid = int(request.query['sensorid'])
+    groupid = int(request.query['groupid'])
+    rtypeid = int(request.app['config'].default_rtypeid)
     host = request.app['config'].host
     port = ':' + request.app['config'].port
     # TODO: Remove the hard-coded dependency here
@@ -26,15 +35,12 @@ async def info_handler(request):
     ws_url = prefix + host + port + route
     # build the sensor readings query
     rtypes = []
-    readings = []
     num_readings = int(request.app['config'].num_readings)
     try:
         # TODO: It may prove more prudent to just pass the request to the 
         #   db class
         async for rtype in request.app['db'].get_rtypes():
             rtypes.append(rtype)
-        async for reading in request.app['db'].get_readings(sensorid=sensorid, groupid=groupid, limit=num_readings):
-            readings.append(reading)
     except pymongo.errors.ConnectionFailure as e:
         status = 403
         if request.app['config'].debug:
@@ -52,7 +58,6 @@ async def info_handler(request):
             'sensorid': sensorid,
             'groupid': groupid,
             'rtypes': rtypes,
-            'readings': readings,
             'num_readings': num_readings,
             'ws_url': ws_url}
 
@@ -125,9 +130,14 @@ async def upload_handler(request):
         text = 'You must supply a sensor ID in your message.'
     if status == 200:
         try:
-            # send the message to the room
-            await message(request.app['rooms'], doc['sensorid'], doc)
-            await request.app['db'].insert_reading(doc)
+            # Only insert if reading verifies as true
+            if verify_reading(doc):
+                # insert the reading into the database
+                await request.app['db'].insert_reading(doc)
+                # generate the string version of the message for output on page
+                doc['rstring'] = filter_reading(doc)
+                # send the message to the room
+                await message(request.app['rooms'], doc['sensorid'], doc)
         except pymongo.errors.ConnectionFailure as e:
             status = 500
             if request.app['config'].debug:

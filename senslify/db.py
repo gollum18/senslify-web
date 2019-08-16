@@ -30,8 +30,6 @@ from contextlib import contextmanager
 
 import pymongo
 
-from senslify import verify
-
 
 async def database_shutdown_handler(app):
     '''
@@ -397,7 +395,7 @@ class MongoProvider(DatabaseProvider):
             raise e
 
 
-    async def get_readings(self, sensorid, groupid, 
+    async def get_readings(self, sensorid, groupid, rtypeid,
             limit=DatabaseProvider.DOC_LIMIT):
         '''
         Generator function for retrieving readings from the database.
@@ -410,11 +408,11 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get readings, database connection not open!')
             return
         try:
+            sensorid = int(sensorid)
+            groupid = int(groupid)
+            rtypeid = int(rtypeid)
             # TODO: Only want to select the most recent readings
-            with self._conn[self._db].readings.find(
-                    {'sensorid': sensorid, 
-                     'groupid': groupid}, 
-                    {'_id': False}).limit(limit) as cursor:
+            with self._conn[self._db].readings.find({"sensorid":sensorid, "groupid":groupid, "rtypeid":rtypeid}, {"_id":False}).sort("ts", pymongo.DESCENDING).limit(limit) as cursor:
                 for doc in cursor:
                     yield doc
         except pymongo.errors.ConnectionFailure as e:
@@ -494,13 +492,14 @@ class MongoProvider(DatabaseProvider):
         if not self._open:
             print('Cannot insert reading, database connection not open!')
             return
-        # only insert if the reading contains a sensor and group
-        if not verify.verify_reading(reading):
-            return False, None
+        # FIX: The verify operation is now performed in the upload handler
         try:
-            sensorid = reading['sensorid']
-            groupid = reading['groupid']
-            rtypeid = reading['rtypeid']
+            # remove the command if necessary
+            if "CMD" in reading:
+                del reading['CMD']
+            sensorid = int(reading['sensorid'])
+            groupid = int(reading['groupid'])
+            rtypeid = int(reading['rtypeid'])
             # insert the sensor if it does not exist
             if not await self.does_sensor_exist(sensorid, groupid):
                 await self.insert_sensor(sensorid, groupid)

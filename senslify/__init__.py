@@ -12,16 +12,19 @@ monkey.patch_all()
 
 import asyncio, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
-import config
+import config, simplejson
 
-# Change the Provider import here if you want to use different one
+# change the Provider import here if you want to use different one
 #   You'll need to change it below too where I have marked
 from senslify.db import database_shutdown_handler, MongoProvider
 
-# Import the various route handlers
+# import the various route handlers
 from senslify.index import index_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import socket_shutdown_handler, ws_handler
+
+# import the filters module, import filters on an as needed basis
+import senslify.filters
 
 
 def build_app(config_file=
@@ -42,7 +45,16 @@ def build_app(config_file=
     loader=jinja2.FileSystemLoader(
         [os.path.join(os.path.dirname(__file__), "templates")]
     )
-    aiohttp_jinja2.setup(app, loader=loader)
+    
+    # setup any filters for the application to use
+    filters = {
+        "datetime": senslify.filters.filter_datetime, # i18n datetime filter
+        "simplejson_dumps": simplejson.dumps,
+        "rstring": senslify.filters.filter_reading # custom reading filter
+    }
+    
+    # setup the application
+    aiohttp_jinja2.setup(app, loader=loader, filters=filters)
 
     # setup the application configuration and any global variables
     app['config'] = config.Config(config_file)

@@ -26,5 +26,7 @@ def verify_reading(reading):
         return False
     if 'val' not in reading:
         return False
+        
+    # TODO: Check the individual data fields as well
 
     return True

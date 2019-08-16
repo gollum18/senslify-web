@@ -7,9 +7,9 @@
 import asyncio, aiohttp
 import simplejson
 
+from senslify.filters import filter_reading
 
 # Define WebSocket command methods
-
 
 def _does_room_exist(rooms, sensorid):
     '''
@@ -68,15 +68,22 @@ async def message(rooms, sensorid, msg):
     # only send the message if the room exists
     if not _does_room_exist(rooms, sensorid):
         return
-    # add the command to the message
-    msg['cmd'] = 'READING'
+    # add additional fields to the message
+    # create the response object for the websocket
+    resp = dict()
+    resp['cmd'] = 'RESP_READING'
+    resp['readings'] = [{
+        'rtypeid': msg['rtypeid'],
+        'ts': msg['ts'],
+        'val': msg['val'],
+        'rstring': msg['rstring']
+    }]
     # get the rtype, so we only send to clients that ask for it specifically
     rtypeid = msg['rtypeid']
-    msg_str = simplejson.dumps(msg)
     # steps through all clients in the room
     for ws, rtype in rooms[sensorid].items():
         if rtype == rtypeid:
-            await ws.send_str(msg_str)
+            await ws.send_str(simplejson.dumps(resp))
 
 
 # Defines the handler for the info page WebSocket
@@ -86,26 +93,50 @@ async def ws_handler(request):
     Arguments:
         request: The request that initiated the WebSocket connection.
     '''
-    ws = aiohttp.web.WebSocketResponse(autoclose=False, heartbeat=3)
-    wsid = hash(ws)
     sensorid = 0
+    
+    ws = aiohttp.web.WebSocketResponse(autoclose=False, heartbeat=3)
     await ws.prepare(request)
 
+    # TODO: There needs to be guards in the casting here
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
+            # decode the received message
+            #   every value in js will be a string, cast as necessary
             js = simplejson.loads(msg.data)
+            # make sure the cmd and sensorid fields are present, they are 
+            #   required for command execution
+            if 'cmd' not in js or 'sensorid' not in js:
+                continue
             cmd = js['cmd'];
-            sensorid = js['sensorid']
-            if cmd == 'JOIN':
+            sensorid = int(js['sensorid'])
+            # adds the requesting websocket as a receiver for messages from
+            #   the indicated sensor
+            if cmd == 'RQST_JOIN':
                 await _join(request.app['rooms'], sensorid, ws)
             # close the connection if the client requested it
-            elif cmd == 'CLOSE':
+            elif cmd == 'RQST_CLOSE':
                 await _leave(request.app['rooms'], sensorid, ws)
                 await ws.close()
                 break
-            # handler for rtype switch command
-            if cmd == 'STREAM':
-                await _change_stream(request.app['rooms'], sensorid, ws, js['rtypeid'])
+            # handle requests from users to switch to a different reading type
+            elif cmd == 'RQST_STREAM':
+                if 'groupid' not in js or 'rtypeid' not in js:
+                    continue
+                groupid = js['groupid']
+                rtypeid = js['rtypeid']
+                # change the stream
+                await _change_stream(request.app['rooms'], sensorid, ws, rtypeid)
+                # construct a response containing the top 100 readings for the stream
+                resp = dict()
+                resp['cmd'] = 'RESP_STREAM'
+                readings = []
+                async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
+                    reading['rstring'] = filter_reading(reading)
+                    readings.append(reading)
+                resp['readings'] = readings
+                # send the response to the client
+                await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:
             ws.send_str('WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception()))
     
