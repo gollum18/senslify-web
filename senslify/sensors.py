@@ -28,11 +28,10 @@ async def info_handler(request):
     sensorid = int(request.query['sensorid'])
     groupid = int(request.query['groupid'])
     rtypeid = int(request.app['config'].default_rtypeid)
-    host = request.app['config'].host
-    port = ':' + request.app['config'].port
+    host = request.host
     # TODO: Remove the hard-coded dependency here
     route = '/ws'
-    ws_url = prefix + host + port + route
+    ws_url = prefix + host + route
     # build the sensor readings query
     rtypes = []
     num_readings = int(request.app['config'].num_readings)
@@ -84,6 +83,8 @@ async def sensors_handler(request):
     Arguments:
         request: A aiohttp.web.Request object.
     '''
+    print('Request Hostname:', request.host)
+    
     # redirect to the index page if no group was provided
     if 'groupid' not in request.query:
         location = request.app.router['index'].url_for()
