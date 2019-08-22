@@ -141,6 +141,14 @@
         }
         
         /**
+         * Client side WS handlet that is fired when the WebSocket is closed.
+         * Handles cleaning up after it.
+         */
+        function onWSClose() {
+            // TODO: Cleanup after the WebSocket
+        }
+        
+        /**
          * Client side WS handler that fires when the WebSocket first opens.
          * This is used by the client to register the sensor it wants to
          * receive updates for.
@@ -173,6 +181,7 @@
         // Register handlers for the WebSocket
         ws.onopen = onWSOpen;
         ws.onmessage = onWSReceive;
+        ws.onclose = onWSClose;
         
         //
         // Define additional support functions

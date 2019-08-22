@@ -14,9 +14,9 @@ from senslify.filters import filter_reading
 def _does_room_exist(rooms, sensorid):
     """ Determines if there is a room for a given sensor or not.
     
-    Keyword arguments:
-    rooms -- A dictionary containing sensor rooms.
-    sensorid -- The sensorid corresponding to the room to check for.
+    Args:
+        rooms (dict): A dictionary containing sensor rooms.
+        sensorid (int): The sensorid corresponding to the room to check for.
     """
     if not sensorid in rooms:
         return False
@@ -26,10 +26,10 @@ def _does_room_exist(rooms, sensorid):
 def _does_ws_exist(rooms, sensorid, ws):
     """Determines if a WebSocket exists in the given room or not.
     
-    Keyword arguments:
-    rooms -- A dictionary containing sensor rooms.
-    sensorid -- The sensorid corresponding to the room to check attendance for.
-    ws -- The WebSocket to check for.
+    Args:
+        rooms (dict): A dictionary containing sensor rooms.
+        sensorid (int): The sensorid corresponding to the room to check attendance for.
+        ws (aiohttp.web.WebSocketResponse): The WebSocket to check for.
     """
     if not _does_room_exist(rooms, sensorid):
         return False
@@ -41,10 +41,10 @@ def _does_ws_exist(rooms, sensorid, ws):
 async def _leave(rooms, sensorid, ws):
     """Allows a WebSocket to leave a room
     
-    Keyword arguments:
-    rooms -- A dictionary contaiing sensor rooms.
-    sensorid -- The sensorid corresponding to the room to leave.
-    ws -- The WebSocket requesting to leave the room.
+    Args:
+        rooms (dict): A dictionary contaiing sensor rooms.
+        sensorid (int): The sensorid corresponding to the room to leave.
+        ws (aiohttp.web.WebSocketResponse): The WebSocket requesting to leave the room.
     """
     # only delete the ws from the room if room exists and the ws is in the room
     if not _does_ws_exist(rooms, sensorid, ws):
@@ -55,10 +55,10 @@ async def _leave(rooms, sensorid, ws):
 async def _join(rooms, sensorid, ws):
     """Allows a WebSocket to join a room.
     
-    Keyword arguments:
-    rooms -- A dictionary containing sensor rooms.
-    sensorid -- The sensorid corresponding to the room to join.
-    ws -- The WebSocket to add to the room.
+    Args:
+        rooms (dict): A dictionary containing sensor rooms.
+        sensorid (int): The sensorid corresponding to the room to join.
+        ws (aiohttp.web.WebSocketResponse): The WebSocket to add to the room.
     """
     # create the room if it does not exist
     if sensorid not in rooms:
@@ -71,11 +71,11 @@ async def _join(rooms, sensorid, ws):
 async def _change_stream(rooms, sensorid, ws, rtype):
     """Changes the data stream the WebSocket receives.
     
-    Keyword arguments:
-    rooms -- A dictionary containing sensor rooms.
-    sensorid -- The sensorid corresponding to the room the WebSocket is in.
-    ws -- The WebSocket to change stream for.
-    rtype -- The stream type to change to.
+    Args:
+        rooms (dict): A dictionary containing sensor rooms.
+        sensorid (int): The sensorid corresponding to the room the WebSocket is in.
+        ws (aiohttp.web.WebSocketResponse): The WebSocket to change stream for.
+        rtype (int): The stream type to change to.
     """
     # check if the ws exists, return if so
     if not _does_ws_exist(rooms, sensorid, ws):
@@ -86,10 +86,10 @@ async def _change_stream(rooms, sensorid, ws, rtype):
 async def message(rooms, sensorid, msg):
     """Sends a message to the participants of a room.
     
-    Keyword arguments:
-    rooms -- A dictionary containing the sensor rooms.
-    sensorid -- The sensorid corresponding to the room to message.
-    msg -- The message to send to all room participants (usually a reading).
+    Args:
+        rooms (dict): A dictionary containing the sensor rooms.
+        sensorid (int): The sensorid corresponding to the room to message.
+        msg (dict): The message to send to all room participants (usually a reading).
     """
     # only send the message if the room exists
     if not _does_room_exist(rooms, sensorid):
@@ -116,8 +116,8 @@ async def message(rooms, sensorid, msg):
 async def ws_handler(request):
     """Handles request for the servers websocket address.
     
-    Keyword arguments:
-    request -- The request that initiated the WebSocket connection.
+    Args:
+        request (aiohttp.web.Request): The request that initiated the WebSocket connection.
     """
     sensorid = 0
     
@@ -153,6 +153,7 @@ async def ws_handler(request):
                 rtypeid = js['rtypeid']
                 # change the stream
                 await _change_stream(request.app['rooms'], sensorid, ws, rtypeid)
+                
                 # construct a response containing the top 100 readings for the stream
                 resp = dict()
                 resp['cmd'] = 'RESP_STREAM'
@@ -161,6 +162,7 @@ async def ws_handler(request):
                     reading['rstring'] = filter_reading(reading)
                     readings.append(reading)
                 resp['readings'] = readings
+                
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:
@@ -175,18 +177,13 @@ async def socket_shutdown_handler(app):
     """Defines a handler for shutting down any connected WebSockets when the 
     server goes down.
     
-    Keyword arguments:
-    app -- The web application hosting the sensor rooms.
+    Args:
+        app (aiohttp.web.Application): The web application hosting the sensor rooms.
     """
     # close any open websockets
     for sensor in app['rooms'].keys():
         for ws in app['rooms'][sensor].keys():
             if not ws.closed:
-                # notify the client the Socket is closing, allows the client to release any resources,
-                #   notify the user, etc...
-                msg = {'cmd' == 'RESP_CLOSE'}
-                await ws.send_str(simplejson.dumps(msg))
-                
                 # close the WebSocket
                 await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY,
                        message='Server shutdown')

@@ -17,5 +17,8 @@ async def rest_handler(request):
         params: A list of key-value parameters corresponding to the targets attributes.
 
     This handler will return an error if the querystring is in an incorrect format.
+    
+    Args:
+        request (aiohttp.web.Request): The web request that initiated the handler.
     '''
     pass

@@ -5,26 +5,26 @@
 
 from babel.dates import format_datetime
 
-def filter_datetime(value, format='medium'):
+def filter_datetime(dt, fmt='medium'):
     """'i18n' compliant datetime filter for jinja2.
     Taken from: https://stackoverflow.com/questions/4830535/how-do-i-format-a-date-in-jinja2
     
-    Keyword arguments:
-    value -- The value to format.
-    format -- The format to use, either medium or full.
+    Args:
+        dt (datetime): The datetime instance to format.
+        fmt (str): The format to use, either medium or full.
     """
-    if format == 'full':
-        format="EEEE, d. MMMM y 'at' HH:mm:ss"
-    elif format == 'medium':
-        format="EE dd.MM.y HH:mm:ss"
-    return format_datetime(value, format)
+    if fmt == 'full':
+        fmt = "EEEE, d. MMMM y 'at' HH:mm:ss"
+    elif fmt == 'medium':
+        fmt = "EE dd.MM.y HH:mm:ss"
+    return format_datetime(dt, fmt)
     
 
 def filter_reading(reading):
     """Generates a formatted string for a reading.
     
-    Keyword arguments:
-    reading -- A reading from a sensor, must be a dictionary.
+    Args:
+        reading (dict): A reading from a sensor.
     """
     if type(reading) is not dict:
         return 'Unable to generate format string, reading is not a dict!'

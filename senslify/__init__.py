@@ -52,8 +52,8 @@ def build_app(config_file=
     """ Factory function that creates a new instance of the server with
     the given configuration.
     
-    Keyword arguments:
-    config_file -- The path to the configuration file to use with the
+    Args:
+    config_file (str): The path to the configuration file to use with the
     server (default ./senslify.conf)
     """
     

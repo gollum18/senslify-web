@@ -8,8 +8,8 @@ def verify_reading(reading):
     """Determines if a reading is in the correct format.
     This method does not verify that keys are correct.
     
-    Keyword arguments:
-    reading --- The reading to verify.
+    Args:
+        reading (dict): The reading to verify.
     """
     # make sure the reading type is a dictionary
     if type(reading) is not dict:

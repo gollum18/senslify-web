@@ -34,8 +34,8 @@ import pymongo
 async def database_shutdown_handler(app):
     """Defines a handler for gracefully shutting down the application database.
     
-    Keyword arguments:
-    app -- 
+    Args:
+        app (aiohttp.web.Application): An instance of the Senslify application.
     """
     if 'db' in app:
         await app['db'].close()
@@ -67,6 +67,13 @@ class DatabaseProvider:
         This method shall be implemented as a generator function, shall yield
         an instance of a DatabaseProvider, and shall close the provider when
         done.
+        
+        Args:
+            conn_str (str): The connection string to the database server.
+            db (str): The name of the Senslify database.
+            
+        Returns:
+            DatabaseProvider: A temporary database provider.
         """
         raise NotImplementedError
         
@@ -89,8 +96,8 @@ class DatabaseProvider:
     async def does_group_exist(self, groupid):
         """Determines if the specifiied group exists in the database.
         
-        Keyword arguments:
-        groupid -- The id of the group to check for.
+        Args:
+            groupid (int): The id of the group to check for.
         """
         raise NotImplementedError
         
@@ -98,8 +105,8 @@ class DatabaseProvider:
     async def does_rtype_exist(self, rtypeid):
         """Determines if the specified sensor exists in the database.
         
-        Keyword arguments:
-        rtypeid -- The id of the rtype to check for.
+        Args:
+            rtypeid (int): The id of the rtype to check for.
         """
         raise NotImplementedError
         
@@ -107,9 +114,9 @@ class DatabaseProvider:
     async def does_sensor_exist(self, sensorid, groupid):
         """Determines if the specified sensor exists in the database.
         
-        Keyword arguments:
-        sensorid -- The id of the sensor to check for.
-        groupid -- The id of the group the sensor belongs to.
+        Args:
+            sensorid (int): The id of the sensor to check for.
+            groupid (int): The id of the group the sensor belongs to.
         """
         raise NotImplementedError
         
@@ -127,8 +134,8 @@ class DatabaseProvider:
     async def get_sensors(self, groupid):
         """Generator function used to get sensors from the database.
         
-        Keyword arguments:
-        groupid: The id of the group to return sensors from.
+        Args:
+            groupid (int): The id of the group to return sensors from.
         """
         raise NotImplementedError
         
@@ -136,10 +143,10 @@ class DatabaseProvider:
     async def get_readings(self, sensorid, groupid, limit=DOC_LIMIT):
         """Generator function for retrieving readings from the database.
         
-        Keyword arguments:
-        sensorid -- The id of the sensor to return readings on.
-        groupid -- The id of the group the sensor belongs to.
-        limit -- The number of readings to return in a single call.
+        Args:
+            sensorid (int): The id of the sensor to return readings on.
+            groupid (int): The id of the group the sensor belongs to.
+            limit (int): The number of readings to return in a single call.
     """
         raise NotImplementedError
         
@@ -147,8 +154,8 @@ class DatabaseProvider:
     async def insert_group(self, groupid):
         """Inserts a group into the database.
         
-        Keyword arguments:
-        groupid -- The id of the group.
+        Args:
+            groupid (int): The id of the group.
         """
         raise NotImplementedError
         
@@ -156,14 +163,8 @@ class DatabaseProvider:
     async def insert_reading(self, reading):
         """Inserts a single reading into the database.'
         
-        Keyword arguments:
-        reading -- The reading to insert into the database, should be a
-        Python dict object.
-        
-        Returns:
-        A pair in the form (result, reason) where:
-            result -- A boolean, whether the documents were inserted.
-            reason -- An exception if an exception occurred.
+        Args:
+            reading (dict): The reading to insert into the database.
         """
         raise NotImplementedError
         
@@ -171,15 +172,9 @@ class DatabaseProvider:
     async def insert_readings(self, readings, batch_size=BATCH_SIZE):
         """Inserts multiple readings into the database.
         
-        Keyword arguments:
-        readings -- A list of readings to insert into the database, should be
-        a Python dict object.
-        batch_size -- The amount of readings to insert per batch.
-            
-        Returns:
-        A pair in the form (result, reason) where:
-            result -- A boolean, whether the documents were inserted.
-            reason -- An exception if an exception occurred.
+        Args:
+            readings (list): A list of readings to insert into the database.
+            batch_size (int): The amount of readings to insert per batch.
         """
         raise NotImplementedError
         
@@ -187,9 +182,9 @@ class DatabaseProvider:
     async def insert_sensor(self, sensorid, groupid):
         """Inserts a sensorboard into the database.
         
-        Keyword arguments:
-        sensorid -- The id assigned to the sensorboard.
-        groupid -- The id of the group the sensorboard belongs to.
+        Args:
+            sensorid (int): The id assigned to the sensorboard.
+            groupid (int): The id of the group the sensorboard belongs to.
         """
         raise NotImplementedError
         
@@ -199,11 +194,7 @@ class DatabaseProvider:
         
         
     def open(self):
-        """Opens a connection to the backing database server.
-        Returns: boolean, error
-            boolean -- Whether the connection was opened or not.
-            error -- None if the connection opened ok, an error otherwise.
-        """
+        """Opens a connection to the backing database server."""
         raise NotImplementedError
         
 
@@ -230,10 +221,10 @@ class MongoProvider(DatabaseProvider):
         database. You must manually open the connection by calling open()
         on the provider before you can use the providers methods.
         
-        Keyword arguments:
-        conn_str -- The connection string to the MongoDB server 
-        (default mongodb://0.0.0.0:27001)
-        db -- The name of the Senslify database (default senslify)
+        Args:
+            conn_str (str): The connection string to the MongoDB server 
+            (default mongodb://0.0.0.0:27001)
+            db (str): The name of the Senslify database (default senslify)
         """
         DatabaseProvider.__init__(self, conn_str, db)
     
@@ -248,9 +239,9 @@ class MongoProvider(DatabaseProvider):
         an instance of a DatabaseProvider, and shall close the provider when
         done.
         
-        Keyword arguments:
-        conn_str -- 
-        db -- 
+        Args:
+            conn_str (str): The connection string to the MongoDB server.
+            db (str): The name of the Senslify database. 
         """
         conn = MongoProvider(conn_str, db)
         conn.open()
@@ -324,8 +315,8 @@ class MongoProvider(DatabaseProvider):
     async def does_group_exist(self, groupid):
         """Determines if the specifiied group exists in the database.
         
-        Keyword arguments:
-        groupid -- The id of the group to check for.
+        Args:
+            groupid (int): The id of the group to check for.
         """
         if not self._open:
             print('Cannot determine if group exists, database connection not open!')
@@ -342,8 +333,8 @@ class MongoProvider(DatabaseProvider):
     async def does_rtype_exist(self, rtypeid):
         """Determines if the specified sensor exists in the database.
         
-        Keyword arguments:
-        rtypeid -- The id of the rtype to check for.
+        Args:
+            rtypeid (int): The id of the rtype to check for.
         """
         if not self._open:
             print('Cannot determine if rtype exists, database connection not open!')
@@ -360,8 +351,8 @@ class MongoProvider(DatabaseProvider):
     async def does_sensor_exist(self, sensorid, groupid):
         """Determines if the specified sensor exists in the database.
         
-        Keyword arguments:
-        sensorid -- The id of the sensor to check for.
+        Args:
+            sensorid (int): The id of the sensor to check for.
         """
         if not self._open:
             print('Cannot determine if sensor exists, database connection not open!')
@@ -379,8 +370,8 @@ class MongoProvider(DatabaseProvider):
     async def get_groups(self):
         """Generator function used to get groups from the database.
         
-        Keyword arguments:
-        batch_size -- The number of groups to return in each batch.
+        Args:
+            batch_size (int): The number of groups to return in each batch.
         """
         if not self._open:
             print('Cannot get groups, database connection not open!')
@@ -400,10 +391,10 @@ class MongoProvider(DatabaseProvider):
             limit=DatabaseProvider.DOC_LIMIT):
         """Generator function for retrieving readings from the database.
         
-        Keyword arguments:
-        sensorid -- The id of the sensor to return readings on.
-        groupid -- The id of the group the sensor belongs to.
-        limit -- The number of readings to return in a single call.
+        Args:
+            sensorid (int): The id of the sensor to return readings on.
+            groupid (int): The id of the group the sensor belongs to.
+            limit (int): The number of readings to return in a single call.
         """
         if not self._open:
             print('Cannot get readings, database connection not open!')
@@ -425,8 +416,8 @@ class MongoProvider(DatabaseProvider):
     async def get_rtypes(self):
         """Generator function used to get reading types from the database.
         
-        Keyword arguments:
-        batch_size -- The number of reading types to return in each batch.
+        Args:
+            batch_size (int): The number of reading types to return in each batch.
         """
         if not self._open:
             print('Cannot get rtypes, database connection not open!')
@@ -444,9 +435,9 @@ class MongoProvider(DatabaseProvider):
     async def get_sensors(self, groupid):
         """Generator function used to get sensors from the database.
         
-        Keyword arguments:
-        groupid -- The id of the group to return sensors from.
-        batch_size -- The number of sensors to return in a single batch.
+        Args:
+            groupid (int): The id of the group to return sensors from.
+            batch_size (int): The number of sensors to return in a single batch.
         """
         if not self._open:
             print('Cannot get sensors, database connection not open!')
@@ -464,8 +455,8 @@ class MongoProvider(DatabaseProvider):
     async def insert_group(self, groupid):
         """ Inserts a group into the database.
         
-        Keyword arguments:
-        groupid -- The id of the group.
+        Args:
+            groupid (int): The id of the group.
         """
         if not self._open:
             print('Cannot insert group, database connection not open!')
@@ -482,14 +473,8 @@ class MongoProvider(DatabaseProvider):
     async def insert_reading(self, reading):
         """Inserts a single reading into the database.
         
-        Keyword arguments:
-        reading -- The reading to insert into the database, should be a
-        Python dict object.
-        
-        Returns:
-        A pair in the form (result, reason) where:
-            result -- A boolean, whether the documents were inserted.
-            reason -- An exception if an exception occurred.
+        Args:
+            reading (dict): The reading to insert into the database.
         """
         if not self._open:
             print('Cannot insert reading, database connection not open!')
@@ -524,15 +509,9 @@ class MongoProvider(DatabaseProvider):
     async def insert_readings(self, readings, batch_size=DatabaseProvider.BATCH_SIZE):
         """Inserts multiple readings into the database.
         
-        Keyword arguments:
-        readings -- A list of readings to insert into the database, should be
-        a Python dict object.
-        batch_size -- The amount of readings to insert per batch.
-        
-        Returns:
-        A pair in the form (result, reason) where:
-            result -- A boolean, whether the documents were inserted.
-            reason -- An exception if an exception occurred.
+        Args:
+            readings (list): A list of readings to insert into the database.
+            batch_size (int): The amount of readings to insert per batch.
         """
         if not self._open:
             print('Cannot insert readings, database connection not open!')
@@ -558,9 +537,9 @@ class MongoProvider(DatabaseProvider):
     async def insert_sensor(self, sensorid, groupid):
         """Inserts a sensorboard into the database.
         
-        Keyword arguments:
-        sensorid -- The id assigned to the sensorboard.
-        groupid -- The id of the group the sensorboard belongs to.
+        Args:
+            sensorid (int): The id assigned to the sensorboard.
+            groupid (int): The id of the group the sensorboard belongs to.
         """
         if not self._open:
             print('Cannot insert sensor, database connection not open!')
