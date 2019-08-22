@@ -20,6 +20,7 @@ from senslify.db import database_shutdown_handler, MongoProvider
 
 # import the various route handlers
 from senslify.index import index_handler
+from senslify.rest import rest_handler
 from senslify.sensors import info_handler, sensors_handler, upload_handler
 from senslify.sockets import socket_shutdown_handler, ws_handler
 
@@ -94,14 +95,13 @@ def build_app(config_file=
     
     # setup the ws rooms
     app['rooms'] = dict()
-    
-    # get the ws url
 
     # register resources for the routes
     app.router.add_resource(r'/', name='index')
     app.router.add_resource(r'/sensors', name='sensors')
     app.router.add_resource(r'/sensors/info', name='info')
     app.router.add_resource(r'/ws', name='ws')
+    app.router.add_resource(r'/rest', name='rest')
 
     # register the routes themselves
     app.router.add_route('GET', '/', index_handler)
@@ -109,6 +109,7 @@ def build_app(config_file=
     app.router.add_route('GET', '/sensors/info', info_handler)
     app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
+    app.router.add_route('GET', '/rest', rest_handler)
     
     # register any shutdown handlers
     app.on_shutdown.append(database_shutdown_handler)

@@ -165,7 +165,7 @@
             // route the message based on response command
             if (resp.cmd === "RESP_READING") { // handles individual readings
                 readingHandler(resp);
-            } else if (resp.command = "RESP_STREAM") { // handles whole datasets
+            } else if (resp.cmd = "RESP_STREAM") { // handles whole datasets
                 streamHandler(resp);
             }
         }
@@ -272,8 +272,6 @@
          * @param dataset The dataset to load into the list.
          */
         function resetList(dataset) {
-            dataset.reverse();
-        
             // empty display of all children
             $("#list_readings").empty();
             
