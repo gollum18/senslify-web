@@ -29,15 +29,8 @@ import senslify.filters
 
 
 def get_local_ip():
-    '''
-    Determines the ip of the machine on the local network. Does not work if
-    behind a NAT/firewall.
+    """Gets the local IP address of the host running the server."""
     
-    Taken From: https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
-    
-    This method is used to determine the ip address for use with the 
-    WebSocket.
-    '''
     import socket
     
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -56,14 +49,13 @@ def build_app(config_file=
     os.path.join(
         os.path.dirname(
             os.path.realpath(__file__)), 'senslify.conf')):
-    '''
-    Defines a factory function for creating the senslify web application.
-    Arguments:
-        config_file: The path to the senslify configuration file.
-    Returns:
-        An instance of the senslify web application configured with the
-        settings found in the config_file.
-    '''
+    """ Factory function that creates a new instance of the server with
+    the given configuration.
+    
+    Keyword arguments:
+    config_file -- The path to the configuration file to use with the
+    server (default ./senslify.conf)
+    """
     
     # create the application and setup the file loader
     app = aiohttp.web.Application()
@@ -120,13 +112,10 @@ def build_app(config_file=
 
 
 def main():
-    '''
-    Defines the main entry point of the program.
-
-    Installing senslify through setup.py will register the 'senslify' command.
-    Invoking the 'senslify' command from the command line or terminal will
-    start the server.
-    '''
+    """Entry point for the server. You may optionally supply a path to
+    a configuration file to use with the server.
+    """
+    
     # get the app
     if len(sys.argv) == 2:
         app = build_app(config_file=sys.argv[2])

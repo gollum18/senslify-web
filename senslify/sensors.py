@@ -15,11 +15,11 @@ from senslify.verify import verify_reading
 
 @aiohttp_jinja2.template('sensors/info.jinja2')
 async def info_handler(request):
-    '''
-    Defines a POST endpoint for the sensor info page.
-    Arguments:
-        request: A aiohttp.web.Request object.
-    '''
+    """Defines a POST endpoint for the sensor info page.
+    
+    Keyword arguments:
+    request -- A aiohttp.web.Request object.
+    """
     # redirect to the sensors page if no sensor was provided
     if 'sensorid' not in request.query or 'groupid' not in request.query:
         location = request.app.router['sensors'].url_for()
@@ -63,14 +63,15 @@ async def info_handler(request):
 
 
 def build_info_url(request, sensor):
-    '''
-    Helper function that creates a url for a given sensor.
-    Arguments:
-        request: The request that wants the sensor url.
-        sensor: The sensor to generate a url for.
+    """Helper function that creates a url for a given sensor.
+    
     This function is called primarily by the sensors_handler function to
     generate links to the sensor info page.
-    '''
+    
+    Keyword arguments:
+    request -- The request that wants the sensor url.
+    sensor -- The sensor to generate a url for.
+    """
     route = request.app.router['info'].url_for().with_query(
         {'sensorid': sensor['sensorid'], 'groupid': sensor['groupid']}
     )
@@ -79,11 +80,11 @@ def build_info_url(request, sensor):
 
 @aiohttp_jinja2.template('sensors/sensors.jinja2')
 async def sensors_handler(request):
-    '''
-    Defines a GET endpoint for the sensors listing page.
-    Arguments:
-        request: A aiohttp.web.Request object.
-    '''
+    """Defines a GET endpoint for the sensors listing page.
+    
+    Keyword arguments:
+    request -- A aiohttp.web.Request object.
+    """
     # redirect to the index page if no group was provided
     if 'groupid' not in request.query:
         location = request.app.router['index'].url_for()
@@ -115,11 +116,11 @@ async def sensors_handler(request):
 
 
 async def upload_handler(request):
-    '''
-    Defines a POST endpoint for uploading sensor data.
-    Arguments:
-        request: A aiohttp.web.Request object.
-    '''
+    """Defines a POST endpoint for uploading sensor data.
+    
+    Keyword arguments:
+    request -- A aiohttp.web.Request object.
+    """
     status = 200
     text = 'Request processed successfully!'
     # It should be safe to insert the msg directly, but I still

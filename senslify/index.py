@@ -3,12 +3,12 @@ import pymongo
 
 
 def build_sensors_url(request, group):
-    '''
-    Helper function that creates a url for a given group.
-    Arguments:
-        request: The request that initiated the connection to the homepage.
-        group: Group information on one group from the database.
-    '''
+    """Helper function that creates a url for a given group.
+    
+    Keyword arguments:
+    request -- The request that initiated the connection to the homepage.
+    group -- Group information on one group from the database.
+    """
     route = request.app.router['sensors'].url_for().with_query(
         {'groupid': group['groupid']}
     )
@@ -17,11 +17,11 @@ def build_sensors_url(request, group):
 
 @aiohttp_jinja2.template('sensors/index.jinja2')
 async def index_handler(request):
-    '''
-    Defines a GET endpoint for the index page.
-    Arguments:
-        request: An aiohttp.Request object.
-    '''
+    """Defines a GET endpoint for the index page.
+    
+    Keyword arguments:
+    request -- An aiohttp.Request object.
+    """
     status = 200
     groups = []
     try:
