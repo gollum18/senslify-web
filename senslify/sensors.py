@@ -6,7 +6,7 @@
 # TODO: Refactor the errors handlers so that they catch generic errors
 
 import aiohttp, aiohttp_jinja2
-import bson, pymongo, simplejson
+import simplejson
 
 from senslify.filters import filter_reading
 from senslify.sockets import message
@@ -41,13 +41,7 @@ async def info_handler(request):
         #   db class
         async for rtype in request.app['db'].get_rtypes():
             rtypes.append(rtype)
-    except pymongo.errors.ConnectionFailure as e:
-        status = 403
-        if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
-        else:
-            text = 'HTTP RESPONSE 403:\nUnable to connect to the senslify database!'
-    except pymongo.errors.PyMongoError as e:
+    except Exception as e:
         status = 403
         if request.app['config'].debug:
             text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
@@ -97,13 +91,7 @@ async def sensors_handler(request):
         async for sensor in request.app['db'].get_sensors(group):
             sensor['url'] = build_info_url(request, sensor)
             sensors.append(sensor)
-    except pymongo.errors.ConnectionFailure as e:
-        status = 403
-        if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
-        else:
-            text = 'HTTP RESPONSE 403:\nUnable to connect to the senslify database!'
-    except pymongo.errors.PyMongoError as e:
+    except Exception as e:
         status = 403
         if request.app['config'].debug:
             text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
@@ -123,8 +111,6 @@ async def upload_handler(request):
     """
     status = 200
     text = 'Request processed successfully!'
-    # It should be safe to insert the msg directly, but I still
-    #   want to explicitly convert the msg to BSON for safety reasons
     doc = simplejson.loads(request.query['msg'])
     # TODO: Perform verification on the data passed to the handler
     if doc['sensorid'] is None:
@@ -140,13 +126,7 @@ async def upload_handler(request):
                 doc['rstring'] = filter_reading(doc)
                 # send the message to the room
                 await message(request.app['rooms'], doc['sensorid'], doc)
-        except pymongo.errors.ConnectionFailure as e:
-            status = 500
-            if request.app['config'].debug:
-                text = 'HTTP RESPONSE 500:\n{}'.format(str(e))
-            else:
-                text = 'HTTP RESPONSE 500:\nUnable to connect to the senslify database!'
-        except pymongo.errors.PyMongoError as e:
+        except Exception as e:
             status = 500
             if request.app['config'].debug:
                 text = 'HTTP RESPONSE 500:\n{}'.format(str(e))

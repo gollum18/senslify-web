@@ -19,12 +19,12 @@ import openpyxl_utilities as utils
 
 
 def get_outfile(filepath, worksheet=None):
-    '''
-    Helper function used to generate output filenames.
-    Mandatory Arguments:
-        filepath: The path to the XLS/XLSM document.
-        worksheet: The name of the worksheet.
-    '''
+    """Helper function used to generate output filenames.
+    
+    Args:
+        filepath (str): The path to the XLS/XLSM document.
+        worksheet (str): The name of the worksheet.
+    """
     # Get the workbooks name
     parts = filepath.split(os.pathsep)
     filename = parts[-1]
@@ -45,13 +45,13 @@ def get_outfile(filepath, worksheet=None):
 
 
 def write_outfile(ws_handle, outfile):
-    '''
-    Helper function that dumps the contents of a worksheet to a Tab separated
-    value file.
-    Arguments:
-        ws_handle: The handle for a worksheet.
-        outfile: The filepath to dump to.
-    '''
+    """Helper function that dumps the contents of a worksheet to a Tab 
+    separated value file.
+    
+    Args:
+        ws_handle (openpyxl.worksheet.worksheet): The handle for a worksheet.
+        outfile (str): The filepath to dump to.
+    """
     with open(outfile, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter='\t', 
             quotechar="\"", quoting=csv.QUOTE_MINIMAL)
@@ -68,9 +68,17 @@ def write_outfile(ws_handle, outfile):
 @click.option('-ws', '--worksheet', default=None, help='The worksheet to convert.')
 @click.option('-v', '--verbose', default=False, is_flag=True, help='Will print additional information if set.')
 def main(infile, outfile, worksheet, verbose):
-    '''
-    Attempts to convert the XLS/XLSM file pointed to by INFILE to a TSV file. If there is more than one worksheet in the book, then each worksheet will produce an additional tsv file with the filename: '[workbook]_[worsheet].tsv'.
-    '''
+    """Attempts to convert the XLS/XLSM file pointed to by INFILE to a TSV 
+    file. If there is more than one worksheet in the book, then each worksheet 
+    will produce an additional tsv file with the filename: 
+    '[workbook]_[worsheet].tsv'.
+    
+    Args:
+        infile (str): Path to the input file.
+        outfilke (str): Path to the output file.
+        worksheet (str): The name of the worksheet to convert.
+        verbose (boolean): Whether to verbosely output information or not.
+    """
     try:
         # Attempt to open the workbook
         wb_handle = pyxl.load_workbook(filename=infile, read_only=True)
