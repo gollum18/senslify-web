@@ -12,8 +12,8 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join('..', 'senslify')))
-sys.path.insert(0, os.path.abspath(os.path.join('..', 'senslify', 'tools')))
+sys.path.insert(0, os.path.abspath('../senslify'))
+sys.path.insert(0, os.path.abspath('../senslify/tools'))
 
 
 # -- Project information -----------------------------------------------------
@@ -32,8 +32,8 @@ release = '0.0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.napoleon', # converts PEP 257 docstrings to RST
-    'sphinx.ext.autodoc' # generates documentation from docstrings
+    'sphinx.ext.autodoc', # generates documentation from docstrings
+    'sphinx.ext.napoleon' # converts PEP 257 docstrings to RST
 ]
 
 # Add any paths that contain templates here, relative to this directory.
