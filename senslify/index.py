@@ -1,13 +1,17 @@
+# Name: index.py
+# Since: Aug. 20th, 2019
+# Author: Christen Ford
+# Purpose: Defines handlers for the index page.
+
 import aiohttp, aiohttp_jinja2
-import pymongo
 
 
 def build_sensors_url(request, group):
     """Helper function that creates a url for a given group.
     
-    Keyword arguments:
-    request -- The request that initiated the connection to the homepage.
-    group -- Group information on one group from the database.
+    Args:
+        request (aiohttp.web.Request): The request that initiated the connection to the homepage.
+        group (int): Group information on one group from the database.
     """
     route = request.app.router['sensors'].url_for().with_query(
         {'groupid': group['groupid']}
@@ -19,8 +23,8 @@ def build_sensors_url(request, group):
 async def index_handler(request):
     """Defines a GET endpoint for the index page.
     
-    Keyword arguments:
-    request -- An aiohttp.Request object.
+    Args:
+        request (aiohttp.web.Request): An aiohttp.Request object.
     """
     status = 200
     groups = []
@@ -29,13 +33,7 @@ async def index_handler(request):
         async for group in request.app['db'].get_groups():
             group['url'] = build_sensors_url(request, group)
             groups.append(group)
-    except pymongo.errors.ConnectionFailure as e:
-        status = 403
-        if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
-        else:
-            text = 'HTTP RESPONSE 403\nUnable to connect to the senslify database!'
-    except pymongo.errors.PyMongoError as e:
+    except Exception as e:
         status = 403
         if request.app['config'].debug:
             text = 'HTTP RESPONSE 403:\n{}'.format(str(e))

@@ -54,6 +54,14 @@ class DatabaseProvider:
     
     
     def __init__(self, conn_str, db):
+        """Returns an instance of a DatabaseProvider. Do not call this function.
+        All of the methods defined by the DatabaseProvider class will raise a
+        NotImplementedError when called.
+        
+        Args:
+            conn_str (str): The connection string for the database server.
+            db (str): The name of the Senslify database.
+        """
         self._conn_str = conn_str
         self._db = db
         self._open = False
@@ -208,11 +216,6 @@ class MongoProvider(DatabaseProvider):
     of these functions are not guaranteed to be accurate reflections of the
     database (not that they would anyway - in reality, unless a Session object
     is used, MongoDB only provides atomicity at the collection level).
-    
-    I chose this approach rather than utilizing Motor or aiomongo because
-    the former is too heavy for this application and introduces additional
-    complexity, while the former is not up to date with the latest PyMongo
-    driver.
     """
     
     
@@ -260,7 +263,7 @@ class MongoProvider(DatabaseProvider):
         
     def init(self):
         """Initializes the database with the initial table design dictated in
-        'Docs/DB.md'. This command will fail-soft if the database already 
+        'docs/DB.rst'. This command will fail-soft if the database already 
         exists.
         """
         if not self._open:
