@@ -30,6 +30,7 @@ REQUIRED = [
 # What packages are optional?
 EXTRAS = {
     # 'fancy feature': ['django'],
+    'btlecli': ['click', 'click_shell', 'PyBluez'],
     'xls2tsv': ['click', 'defusedxml', 'openpyxl', 'openpyxl-utilities'],
 }
 
@@ -112,6 +113,7 @@ setup(
 
     entry_points={
         'console_scripts': [
+            'btrecv=senslify.tools.btrecv:main',
             'senslify=senslify.__init__:main',
             'xlsx2tsv=senslify.tools.xlsx2tsv:main'
         ],
