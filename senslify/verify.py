@@ -1,6 +1,6 @@
 # THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
 # APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM “AS IS” WITHOUT
+# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT
 # WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
 # A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
@@ -76,9 +76,13 @@ def verify_rest_params(target, params):
         True if the REST request is valid, False otherwise.
     """
     if target == 'sensors':
-    
+        if 'groupid' not in params:
+            return False
     elif target == 'readings':
-    
+        if 'groupid' not in params:
+            return False
+        elif 'sensorid' not in params:
+            return False
     return True
 
 

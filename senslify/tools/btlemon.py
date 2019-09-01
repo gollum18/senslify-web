@@ -1,6 +1,6 @@
 # THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
 # APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM “AS IS” WITHOUT
+# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT
 # WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
 # A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
@@ -14,7 +14,8 @@
 # Purpose: Linux only. Serves as a bluetooth client for connecting bluetooth low-energy services
 #   to the Senslify web server.
 
-import btle, click, os, sys
+import click, os, sys
+from bluepy import btle
 from click_shell import shell
         
         
@@ -46,9 +47,9 @@ def main():
 
 
 @main.command('discover')
-@main.option('-i', '--index', default=0, type=click.INT)
-@main.option('-t', '--timeout', default=10, type=click.INT)
-def device_discover_command(index):
+@click.option('-i', '--index', default=0, type=click.INT)
+@click.option('-t', '--timeout', default=10, type=click.INT)
+def device_discover_command(index, timeout):
     """Discovers bluetooth low-energy devices.
     
     Arguments:
@@ -58,12 +59,12 @@ def device_discover_command(index):
         timeout (int): The scanner timeout.
     """
     try:
-        click.echo('Now scanning for BTLE devices...')
+        click.echo('Now scanning for btle devices...')
         scanner = btle.Scanner(index)
         entries = scanner.scan(timeout)
-        click.echo('Found the following BTLE devices...')
+        click.echo('Found the following btle devices...')
         for entry in entries:
-            click.echo('  {}', entry)
+            click.echo(entry.getScanData())
     except btle.BTLEException as e:
         click.secho('A BTLEException has occurred!\n{}'.format(e), fg='red')
 
@@ -154,7 +155,7 @@ def device_connect_command(address):
             
             # check that the device exists
             if address in devices:
-                
+                devices[address].connect()
             else:
                 click.secho('Command cannot be run. No such device with address {} found!'.format(address), fg='red')
         else:

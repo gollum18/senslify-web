@@ -1,6 +1,6 @@
 # THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
 # APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM “AS IS” WITHOUT
+# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT
 # WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
 # A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
@@ -29,7 +29,7 @@ async def handle_find(request, target, params):
         params (dict): A dictionary containing parameters for the target.
     """
     results = []
-    try:
+    if verify_rest_request(target, params):
         # target handler for groups
         if target == 'groups':
             for doc in request.app['db'].get_groups():
@@ -43,10 +43,8 @@ async def handle_find(request, target, params):
             for doc in request.app['db'].get_sensors(groupid):
                 results.append(doc)
         elif target == 'readings':
-            if 'sensorid' not in params:
             for doc in request.app['db'].get_readings():
-    except Exception as e:
-        
+                results.append(doc)
     resp_body = dict()
     resp_body['results'] = results
     return aiohttp.web.Response(body=simplejson.dumps(resp_body))
@@ -60,6 +58,7 @@ async def handle_stats(request, target, params):
         target (str): The target to initiate the find command against.
         params (dict): A dictionary containing parameters for the target.
     """
+    pass
 
 
 async def rest_handler(request):
