@@ -24,21 +24,19 @@ async def info_handler(request):
     if 'sensorid' not in request.query or 'groupid' not in request.query:
         location = request.app.router['sensors'].url_for()
         raise aiohttp.web.HTTPFound(location=location)
+    status = 200
     # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
     sensorid = int(request.query['sensorid'])
     groupid = int(request.query['groupid'])
     rtypeid = int(request.app['config'].default_rtypeid)
     host = request.host
-    # TODO: Remove the hard-coded dependency here
     route = '/ws'
     ws_url = prefix + host + route
     # build the sensor readings query
     rtypes = []
     num_readings = int(request.app['config'].num_readings)
     try:
-        # TODO: It may prove more prudent to just pass the request to the 
-        #   db class
         async for rtype in request.app['db'].get_rtypes():
             rtypes.append(rtype)
     except Exception as e:
@@ -47,13 +45,16 @@ async def info_handler(request):
             text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
         else:
             text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
-    # build the response thru jinja2
-    return {'title': 'Sensor Info',
-            'sensorid': sensorid,
-            'groupid': groupid,
-            'rtypes': rtypes,
-            'num_readings': num_readings,
-            'ws_url': ws_url}
+    if status != 200:
+        return aiohttp.web.Response(status=status, text=text)
+    else:
+        # build the response thru jinja2
+        return {'title': 'Sensor Info',
+                'sensorid': sensorid,
+                'groupid': groupid,
+                'rtypes': rtypes,
+                'num_readings': num_readings,
+                'ws_url': ws_url}
 
 
 def build_info_url(request, sensor):
