@@ -9,3 +9,4 @@ pymongo
 simplejson
 gevent
 sphinx
+PyBluez
