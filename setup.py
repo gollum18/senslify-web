@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+# APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
+# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT
+# WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
+# PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE
+# DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR
+# CORRECTION.
+
+
 # Note: To use the 'upload' functionality of this file, you must:
 #   $ pipenv install twine --dev
 
@@ -30,7 +41,7 @@ REQUIRED = [
 # What packages are optional?
 EXTRAS = {
     # 'fancy feature': ['django'],
-    'btlecli': ['click', 'click_shell', 'PyBluez'],
+    'btlemon': ['click', 'click_shell', 'bluepy'],
     'xls2tsv': ['click', 'defusedxml', 'openpyxl', 'openpyxl-utilities'],
 }
 
@@ -113,7 +124,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'btrecv=senslify.tools.btrecv:main',
+            'btlemon=senslify.tools.btlemon:main',
             'senslify=senslify.__init__:main',
             'xlsx2tsv=senslify.tools.xlsx2tsv:main'
         ],

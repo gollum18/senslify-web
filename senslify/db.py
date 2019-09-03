@@ -1,3 +1,13 @@
+# THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+# APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
+# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT
+# WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
+# PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE
+# DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR
+# CORRECTION.
+
 # Name: db.py
 # Since: ~July 15th, 2019
 # Author: Christen Ford
@@ -279,6 +289,8 @@ class MongoProvider(DatabaseProvider):
                     raise e
                 except pymongo.errors.PyMongoError as e:
                     raise e
+                except Exception as e:
+                    raise e
             else:
                 # otherwise exit the method, no initialization needed
                 return
@@ -331,6 +343,8 @@ class MongoProvider(DatabaseProvider):
             raise e
         except pymongo.errors.PyMongoError as e:
             raise e
+        except Exception as e:
+            raise e
         
         
     async def does_rtype_exist(self, rtypeid):
@@ -348,6 +362,8 @@ class MongoProvider(DatabaseProvider):
         except pymongo.errors.ConnectionFailure as e:
             raise e
         except pymongo.errors.PyMongoError as e:
+            raise e
+        except Exception as e:
             raise e
         
     
@@ -368,6 +384,8 @@ class MongoProvider(DatabaseProvider):
             raise e
         except pymongo.errors.PyMongoError as e:
             raise e
+        except Exception as e:
+            raise e
 
 
     async def get_groups(self):
@@ -387,6 +405,8 @@ class MongoProvider(DatabaseProvider):
         except pymongo.errors.ConnectionFailure as e:
             raise e
         except pymongo.errors.PyMongoError as e:
+            raise e
+        except Exception as e:
             raise e
 
 
@@ -414,6 +434,8 @@ class MongoProvider(DatabaseProvider):
             raise e
         except pymongo.errors.PyMongoError as e:
             raise e
+        except Exception as e:
+            raise e
         
         
     async def get_rtypes(self):
@@ -433,6 +455,8 @@ class MongoProvider(DatabaseProvider):
             raise e
         except pymongo.errors.PyMongoError as e:
             raise e
+        except Exception as e:
+            raise e
 
 
     async def get_sensors(self, groupid):
@@ -446,12 +470,15 @@ class MongoProvider(DatabaseProvider):
             print('Cannot get sensors, database connection not open!')
             return
         try:
+            groupid = int(groupid)
             with self._conn[self._db].sensors.find({'groupid': groupid}, {'_id': False}) as cursor:
                 for doc in cursor:
                     yield doc
         except pymongo.errors.ConnectionFailure as e:
             raise e
         except pymongo.errors.PyMongoError as e:
+            raise e
+        except Exception as e:
             raise e
         
         
@@ -464,12 +491,15 @@ class MongoProvider(DatabaseProvider):
         if not self._open:
             print('Cannot insert group, database connection not open!')
             return
+        groupid = int(groupid)
         try:
             if not await self.does_group_exist(groupid):
                 self._conn[self._db].groups.insert_one({"groupid": groupid})
         except pymongo.errors.ConnectionFailure as e:
             raise e
         except pymongo.errors.PyMongoError as e:
+            raise e
+        except Exception as e:
             raise e
 
 
@@ -506,6 +536,8 @@ class MongoProvider(DatabaseProvider):
             return False, e
         except pymongo.errors.PyMongoError as e:
             return False, e
+        except Exception as e:
+            return False, e
         return True, None
         
         
@@ -534,6 +566,8 @@ class MongoProvider(DatabaseProvider):
             return False, e
         except pymongo.errors.PyMongoError as e:
             return False, e
+        except Exception as e:
+            return False, e
         return True, None
         
         
@@ -553,6 +587,9 @@ class MongoProvider(DatabaseProvider):
             return False, e
         except pymongo.errors.PyMongoError as e:
             return False, e
+        except Exception as e:
+            return False, e
+        return True, None
         
         
     def open(self):
