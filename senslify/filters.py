@@ -17,6 +17,9 @@ def filter_datetime(dt, fmt='medium'):
         fmt = "EEEE, d. MMMM y 'at' HH:mm:ss"
     elif fmt == 'medium':
         fmt = "EE dd.MM.y HH:mm:ss"
+    # return medium dateformat by default
+    else:
+        fmt = "EE dd.MM.y HH:mm:ss"
     return format_datetime(dt, fmt)
     
 

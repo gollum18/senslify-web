@@ -155,7 +155,7 @@ class DatabaseProvider:
             sensorid (int): The id of the sensor to return readings on.
             groupid (int): The id of the group the sensor belongs to.
             limit (int): The number of readings to return in a single call.
-    """
+        """
         raise NotImplementedError
         
         
@@ -169,7 +169,7 @@ class DatabaseProvider:
         
         
     async def insert_reading(self, reading):
-        """Inserts a single reading into the database.'
+        """Inserts a single reading into the database.
         
         Args:
             reading (dict): The reading to insert into the database.
