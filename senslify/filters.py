@@ -1,6 +1,6 @@
 # THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
 # APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM “AS IS” WITHOUT
+# HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT
 # WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
 # A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
@@ -26,6 +26,9 @@ def filter_datetime(dt, fmt='medium'):
     if fmt == 'full':
         fmt = "EEEE, d. MMMM y 'at' HH:mm:ss"
     elif fmt == 'medium':
+        fmt = "EE dd.MM.y HH:mm:ss"
+    # return medium dateformat by default
+    else:
         fmt = "EE dd.MM.y HH:mm:ss"
     return format_datetime(dt, fmt)
     
