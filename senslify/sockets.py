@@ -14,7 +14,7 @@
 # Description: Defines a handler for the info page WebSocket as well as various
 #   helper functions.
 
-import asyncio, aiohttp
+import aiohttp
 import simplejson
 
 from senslify.filters import filter_reading
