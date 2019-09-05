@@ -36,9 +36,9 @@
 #   for all possible situations - CF
 
 
+import bson, pymongo, sys
 from contextlib import contextmanager
-
-import pymongo
+from verify import verify_reading
 
 
 async def database_shutdown_handler(app):
@@ -215,6 +215,20 @@ class DatabaseProvider:
         """Opens a connection to the backing database server."""
         raise NotImplementedError
         
+        
+    async def stats_sensor(self, sensorid, groupid, rtypeid, start, end):
+        """Returns the stats for a specific sensor.
+        
+        Args:
+            sensorid (int): The id of the sensor to retrieve stats on.
+            groupid (int): The id of the group the sensor belongs to.
+            rtypeid (int): The id of the reading type to retrieve stats for.
+            start (datetime, datetime): The start time that begins the range
+            for stats.
+            end (datetime.datetime): The end time that ends the range for
+            stats.
+        """
+        raise NotImplementedError
 
 
 class MongoProvider(DatabaseProvider):
@@ -227,7 +241,6 @@ class MongoProvider(DatabaseProvider):
     database (not that they would anyway - in reality, unless a Session object
     is used, MongoDB only provides atomicity at the collection level).
     """
-    
     
     def __init__(self, conn_str='mongodb://0.0.0.0:27001', db='senslify'):
         """Returns an object capable of interacting with the Senslify MongoDB
@@ -426,7 +439,6 @@ class MongoProvider(DatabaseProvider):
             sensorid = int(sensorid)
             groupid = int(groupid)
             rtypeid = int(rtypeid)
-            # TODO: Only want to select the most recent readings
             with self._conn[self._db].readings.find({"sensorid":sensorid, "groupid":groupid, "rtypeid":rtypeid}, {"_id":False}).sort("ts", pymongo.DESCENDING).limit(limit) as cursor:
                 for doc in cursor:
                     yield doc
@@ -523,7 +535,6 @@ class MongoProvider(DatabaseProvider):
             # insert the sensor if it does not exist
             if not await self.does_sensor_exist(sensorid, groupid):
                 await self.insert_sensor(sensorid, groupid)
-            # #TODO: insert the group if it does not exist
             if not await self.does_group_exist(groupid):
                 await self.insert_group(groupid)
             # make sure that the rtype exists, exit otherwise
@@ -551,14 +562,12 @@ class MongoProvider(DatabaseProvider):
         if not self._open:
             print('Cannot insert readings, database connection not open!')
             return
-        #TODO: Some sort of verification needs performed on the readings
-        #   maybe we can only insert readings that verify? idk for now
-        if not map(verify.verify_reading, readings):
+        if not map(verify_reading, readings):
             return False, None
         try:
             index = 0
             lim = len(readings)
-            while step < lim:
+            while index < lim:
                 step = batch_size if index + batch_size < lim else lim - index
                 self._conn[self._db].readings.insert_many(readings[index:index+step])
                 index += step
@@ -601,3 +610,82 @@ class MongoProvider(DatabaseProvider):
             except pymongo.errors.PyMongoError as e:
                 print('Error: Cannot continue, there was a problem opening the database connection!\n{}'.format(str(e)))
                 sys.exit(-1)
+                
+                
+    async def stats_sensor(self, sensorid, groupid, rtypeid, 
+                           start=None, end=None):
+        """Returns the stats for a specific sensor.
+        
+        Args:
+            sensorid (int): The id of the sensor to retrieve stats on.
+            groupid (int): The id of the group the sensor belongs to.
+            rtypeid (int): The id of the reading type to retrieve stats for.
+            start (datetime, datetime): The start time that begins the range
+            for stats (default: None).
+            end (datetime.datetime): The end time that ends the range for
+            stats (default: None).
+        """
+        # This pipeline should return min, max, and avg for the rtype.
+        pipeline = [
+            # filter by sensorid, groupid, and rtypeid
+            #   these are all indexed so this should be fast
+            {"$match": 
+                {"$and": [
+                    {"$eq": ["$sensorid", sensorid]}, 
+                    {"$eq": ["$groupid", groupid]},
+                    {"$eq": ["$rtypeid", rtypeid]}
+                ]}
+            },
+            # optimization step - sort descending by time
+            {"$sort": 
+                {"$ts": -1}
+            },
+            # filter by time
+            {"$match": 
+                {"$and": [
+                    {"$gte": [start, "$ts"]}, 
+                    {"$lte": [end, "$ts"]}
+                ]}
+            },
+            # project just the value field
+            {"$project": {"val": 1}},
+            # simultaneously determine the min, max, and avg
+            # TODO: We may be able to do this entirely in the above 
+            #   project
+            {"$facet": {
+                "min": [
+                    {"$group": 
+                        {
+                            "_id": None,
+                            "minValue": {"$min": "$val"}
+                        }
+                    }
+                ],
+                "max": [
+                    {"$group": 
+                        {
+                            "_id": None,
+                            "maxValue": {"$max": "$val"}
+                        }
+                    }
+                ],
+                "avg": [
+                    {"$group": 
+                        {
+                            "_id": None,
+                            "avgValue": {"$avg": "$val"}
+                        }
+                    }
+                ]
+            }}
+        ]
+        if not self._open:
+            print('Cannot retrieve stats for sensor, database connection not open!')
+            return
+        try:
+            with self._conn[self._db].readings.aggregate(pipeline,
+                           allowDiskUse=True, maxTimeMS=500) as cursor:
+                for doc in cursor:
+                    yield doc
+        except Exception as e:
+            raise e
