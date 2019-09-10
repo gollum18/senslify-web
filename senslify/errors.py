@@ -13,7 +13,8 @@
 # Author: Christen Ford
 # Purpose: Defines methods for generating context-specific error Responses.
 
-import aiohttp
+import aiohttp, os, traceback, sys
+
 
 def generate_rest_error(reason):
     """Generates errors for the '/rest' handler.
@@ -27,3 +28,19 @@ def generate_rest_error(reason):
     text = "HTTP 400 ERROR: Command not understood or invalid target/parameters sent!"
     text += "\nReason: {}".format(reason)
     return aiohttp.web.Response(status=status, text=text)
+  
+
+def traceback_str(exception):
+    """Generates a formatted traceback string for developer output.
+    
+    Arguments:
+        exception (Exception): The exception that triggered the traceback.
+        
+    Returns:
+        (str): A formatted traceback string.
+    """
+    exc_type, exc_obj, exc_tb = sys.exc_info()
+    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    text = 'HTTP RESPONSE 403:\n\nError: {}\nType: {}\nFile: {}\nLine Number: {}\n\nTraceback:\n{}'.format(str(exception), exc_type, fname, exc_tb.tb_lineno,
+        ''.join(traceback.format_tb(exc_tb)))
+    return text
