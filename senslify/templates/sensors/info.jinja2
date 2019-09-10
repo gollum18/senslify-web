@@ -76,6 +76,8 @@
         // the websocket for sending/receiving messages to/from the server
         //  the websocket is constant as it persists for the life of the page
         const ws = new WebSocket('{{ ws_url }}');
+        // stores the number of readings seen so far
+        var readingsSoFar = 0;
         // stores a reference to the chart object for graphically displaying 
         //  readings
         var rtChart = null;
@@ -119,12 +121,44 @@
          * @param resp The response from the server.
          */
         function readingHandler(resp) {
-            // get the list of readings
+            // increment the number of readings seen so far
+            //  I dont anticipate someone to sit on the window long enough
+            //  for the readings counter to wrap
+            readingsSoFar += 1;
+        
+            // get the components we need to update
+            let tdMin = $("td_stats_min");
+            let tdMax = $("td_stats_max");
+            let tdAvg = $("td_stats_avg");
             let rlist = $("#list_readings");
             
             // evict the oldest reading if at the limit
             if (rlist.children().length === rlim) {
                 rlist.children().last().remove();
+            }
+            
+            // update the stats for the readings
+            try {
+                let value = parseFloat(resp.readings[0].val);
+                let oldMin = parseFloat(tdMin.text());
+                let oldMax = parseFloat(tdMax.text());
+                if (value < oldMin) {
+                    tdMin.text(value.toString());
+                } else if (value > oldMax) {
+                    tdMax.text(value.toString());
+                }
+                if (readingsSoFar === 1) {
+                    tdAvg.text(value.toString());
+                } else {
+                    let oldMu = parseFloat(tdAvg().text());
+                    let newMu = oldMu + ((value - oldMu) / readingsSoFar);
+                    tdAvg.text(newMu.toString());
+                }
+            } catch {
+                readingsSoFar = 0;
+                tdMin.text("N/A");
+                tdMax.text("N/A");
+                tdAvg.text("N/A");
             }
             
             // add the reading to the front of the list
@@ -138,7 +172,7 @@
                 y: resp.readings[0].val
             });
             
-            // update the chart, keepiing the current animation
+            // update the chart, keeping the current animation
             rtChart.update({
                 preservation: true
             });
