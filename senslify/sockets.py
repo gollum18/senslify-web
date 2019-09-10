@@ -194,6 +194,10 @@ async def ws_handler(request):
                 resp['cmd'] = 'RESP_SENSOR_STATS'
                 resp['stats'] = await request.app['db'].stats_sensor(sensorid, 
                     groupid, rtypeid, start_date, end_date)
+                # replace the elements in the doc with what the webpage expects
+                stats['min'] = stats['min'][0]['min']
+                stats['max'] = stats['max'][0]['max']
+                stats['avg'] = stats['avg'][0]['avg']
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:

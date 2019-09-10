@@ -15,6 +15,8 @@
 
 import aiohttp, aiohttp_jinja2
 
+from senslify.errors import traceback_str
+
 
 def build_sensors_url(request, group):
     """Helper function that creates a url for a given group.
@@ -24,7 +26,9 @@ def build_sensors_url(request, group):
         group (int): Group information on one group from the database.
     """
     route = request.app.router['sensors'].url_for().with_query(
-        {'groupid': group['groupid']}
+        {
+            'groupid': group['groupid']
+        }
     )
     return route
 
@@ -46,7 +50,7 @@ async def index_handler(request):
     except Exception as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
+            text = traceback_str(e)
         else:
             text = 'HTTP RESPONSE 403\n An error has occurred with the database!'
     if status != 200:

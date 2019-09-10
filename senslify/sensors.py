@@ -74,7 +74,6 @@ async def info_handler(request):
         stats['max'] = stats['max'][0]['max']
         stats['avg'] = stats['avg'][0]['avg']
     except Exception as e:
-        status = 403
         if request.app['config'].debug:
             text = traceback_str(e)
         else:
@@ -83,14 +82,16 @@ async def info_handler(request):
         return aiohttp.web.Response(status=status, text=text)
     else:
         # build the response thru jinja2
-        return {'title': 'Sensor Info',
-                'sensorid': sensorid,
-                'groupid': groupid,
-                'rtypeid': rtypeid,
-                'rtypes': rtypes,
-                'stats': stats,
-                'num_readings': num_readings,
-                'ws_url': ws_url}
+        return {
+            'title': 'Sensor Info',
+            'sensorid': sensorid,
+            'groupid': groupid,
+            'rtypeid': rtypeid,
+            'rtypes': rtypes,
+            'stats': stats,
+            'num_readings': num_readings,
+            'ws_url': ws_url
+        }
 
 
 def build_info_url(request, sensor):
@@ -104,7 +105,10 @@ def build_info_url(request, sensor):
     sensor -- The sensor to generate a url for.
     """
     route = request.app.router['info'].url_for().with_query(
-        {'sensorid': sensor['sensorid'], 'groupid': sensor['groupid']}
+        {
+            'sensorid': sensor['sensorid'], 
+            'groupid': sensor['groupid']
+        }
     )
     return route
     
@@ -129,7 +133,6 @@ async def sensors_handler(request):
             sensor['url'] = build_info_url(request, sensor)
             sensors.append(sensor)
     except Exception as e:
-        status = 403
         if request.app['config'].debug:
             text = traceback_str(e)
         else:
@@ -137,7 +140,10 @@ async def sensors_handler(request):
     if status != 200:
         return aiohttp.web.Response(text=text, status=status)
     else:
-        return {'title': 'Sensors', 'sensors': sensors}
+        return {
+            'title': 'Sensors', 
+            'sensors': sensors
+        }
 
 
 async def upload_handler(request):
