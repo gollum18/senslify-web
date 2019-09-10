@@ -38,7 +38,7 @@
 
 import bson, pymongo, sys
 from contextlib import contextmanager
-from verify import verify_reading
+from senslify.verify import verify_reading
 
 
 async def database_shutdown_handler(app):
@@ -662,29 +662,30 @@ class MongoProvider(DatabaseProvider):
         # build the pipeline
         pipeline = [
             # filter all elements that do not match the indicated group and rtype
-            {"$match": 
-                {"$and": [
-                    {"$eq": ["$groupid", groupid]},
-                    {"$eq": ["$rtypeid", rtypeid]}
-                ]}
+            {"$match": {
+                    "$and": [{ 
+                        "groupid": {"$eq": groupid},
+                        "rtypeid": {"$eq": rtypeid}
+                    }]
+                }
             },
             # optimization step - sort descending by time
             {"$sort": 
-                {"$ts": -1}
+                {"ts": -1}
             },
             # filter out all elements that do not fit within the time bound
-            {"$match":
-                {"$and": [
-                    {"$gte": [start, "$ts"]}, 
-                    {"$lte": [end, "$ts"]}
-                ]}
+            {"$match": {
+                    "$and": [{
+                        "ts": {"$gte": start}, 
+                        "ts": {"$lte": end}
+                    }]
+                }
             }
         ]
         try:
             with self._conn[self._db].readings.aggregate(pipeline,
                     allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                for doc in cursor:
-                    yield doc
+                return cursor.next()
         except Exception as e:
             raise e
 
@@ -702,7 +703,7 @@ class MongoProvider(DatabaseProvider):
             stats.
             
         Returns:
-            (generator): A Python generator over the stats from the database.
+            (dict): A Python dict-like object containing the stats for sensor.
             
         Raises:
             (Exception): If there was a problem interacting with the database.
@@ -714,23 +715,25 @@ class MongoProvider(DatabaseProvider):
         pipeline = [
             # filter by sensorid, groupid, and rtypeid
             #   these are all indexed so this should be fast
-            {"$match": 
-                {"$and": [
-                    {"$eq": ["$sensorid", sensorid]}, 
-                    {"$eq": ["$groupid", groupid]},
-                    {"$eq": ["$rtypeid", rtypeid]}
-                ]}
+            {"$match": {
+                    "$and": [{
+                        "sensorid": {"$eq": sensorid}, 
+                        "groupid": {"$eq": groupid},
+                        "rtypeid": {"$eq": rtypeid}
+                    }]
+                }
             },
             # optimization step - sort descending by time
             {"$sort": 
-                {"$ts": -1}
+                {"ts": -1}
             },
             # filter by time
-            {"$match": 
-                {"$and": [
-                    {"$gte": [start, "$ts"]}, 
-                    {"$lte": [end, "$ts"]}
-                ]}
+            {"$match": {
+                    "$and": [{
+                        "ts": {"$gte": start}, 
+                        "ts": {"$lte": end}
+                    }]
+                }
             },
             # project just the value field
             {"$project": {"val": 1}},
@@ -742,7 +745,7 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "minValue": {"$min": "$val"}
+                            "min": {"$min": "$val"}
                         }
                     }
                 ],
@@ -750,7 +753,7 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "maxValue": {"$max": "$val"}
+                            "max": {"$max": "$val"}
                         }
                     }
                 ],
@@ -758,7 +761,7 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "avgValue": {"$avg": "$val"}
+                            "avg": {"$avg": "$val"}
                         }
                     }
                 ]
@@ -767,7 +770,6 @@ class MongoProvider(DatabaseProvider):
         try:
             with self._conn[self._db].readings.aggregate(pipeline,
                     allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                for doc in cursor:
-                    yield doc
+                return cursor.next()
         except Exception as e:
             raise e
