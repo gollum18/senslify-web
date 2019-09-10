@@ -15,9 +15,12 @@
 
 # TODO: Refactor the errors handlers so that they catch generic errors
 
-import aiohttp, aiohttp_jinja2, datetime
+import aiohttp, aiohttp_jinja2
 import simplejson
 
+from datetime import datetime
+
+from senslify.errors import traceback_str
 from senslify.filters import filter_reading
 from senslify.sockets import message
 from senslify.verify import verify_reading
@@ -54,21 +57,28 @@ async def info_handler(request):
     except Exception as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
+            text = 'HTTP RESPONSE 403:\n\n{}'.format(traceback_str(e))
         else:
-            text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
+            text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
     
+    # get the time span
+    end = datetime.timestamp(datetime.now())
+    start = datetime.timestamp(datetime.today().replace(day=1))
     # build the stats dictionary with default entries
-    now = datetime.datetime()
+    stats = None
     try:
         stats = await request.app['db'].stats_sensor(sensorid, groupid, 
-            rtypeid, now)
+            rtypeid, start, end)
+        # replace the elements in the doc with what the webpage expects
+        stats['min'] = stats['min'][0]['min']
+        stats['max'] = stats['max'][0]['max']
+        stats['avg'] = stats['avg'][0]['avg']
     except Exception as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
+            text = traceback_str(e)
         else:
-            text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
+            text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
     if status != 200:
         return aiohttp.web.Response(status=status, text=text)
     else:
@@ -121,9 +131,9 @@ async def sensors_handler(request):
     except Exception as e:
         status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
+            text = traceback_str(e)
         else:
-            text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
+            text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
     if status != 200:
         return aiohttp.web.Response(text=text, status=status)
     else:
@@ -154,9 +164,9 @@ async def upload_handler(request):
                 # send the message to the room
                 await message(request.app['rooms'], doc['sensorid'], doc)
         except Exception as e:
-            status = 500
+            status = 403
             if request.app['config'].debug:
-                text = 'HTTP RESPONSE 500:\n{}'.format(str(e))
+                text = traceback_str(e)
             else:
-                text = 'HTTP RESPONSE 500:\nAn error has occurred with the database!'
+                text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
     return aiohttp.web.Response(text=text, status=status)

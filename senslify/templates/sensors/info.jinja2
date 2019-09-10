@@ -3,8 +3,7 @@
 {% block head %}
     <!-- Make sure to test the new versions of these libraries prior to upgrading them. -->
     <!-- Pull down ChartJS for graphing and Moment for time -->
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.24.0/moment.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0/dist/Chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/combine/npm/moment@2,npm/chart.js@2"></script>
     <!-- ChartJS Realtime Extension -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@1.8.0/dist/chartjs-plugin-streaming.min.js"></script>
 {% endblock %}
@@ -34,7 +33,7 @@
             <input id="start_date_picker" type="date">
             <label for="end_date_picker">End Date:</label>
             <input id="end_date_picker" type="date">
-            <input type="button" value="Get Stats" onclick="onStatsClicked();">
+            <input type="button" value="Get Stats" onclick="onStatsRequested();">
         </div>
     </section>
     <!-- This section defines the live chart. -->
@@ -91,7 +90,7 @@
          * WS on the client.
          */
         function onWindowUnload() {
-            var msg = {'cmd': 'RQST_CLOSE', 'sensorid': sensorid};
+            let msg = {'cmd': 'RQST_CLOSE', 'sensorid': sensorid};
             ws.send(JSON.stringify(msg));
             ws.close();
         }
@@ -316,14 +315,14 @@
         /**
          * Handles onclick events for the stats readout.
          */
-        function onStatsClicked() {
+        function onStatsRequested() {
             let rtypeid = $("#start_date_picker").val();
             let start_date = new Date($("#end_date_picker").val());
             let end_date = new Date($("#sel_rtype").val());
             
-            # TODO: verify that the dates or rtype actually changed
+            // TODO: verify that the dates or rtype actually changed
             
-            # verify the start date is less than the end date
+            // verify the start date is less than the end date
             if (start_date >= end_date) {
                 return;
             }
