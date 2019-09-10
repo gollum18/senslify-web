@@ -13,44 +13,57 @@
 # Author: Christen Ford
 # Purpose: Exposes the database connector as a REST API. The primary purpose
 #   of this module is to allow ad-hoc interaction with the database connector.
+#
+# For the methods defined in this module that return data such as find and stats,
+#   they will always return data in the body of the Response as a serialized
+#   JSON object.
 
 import aiohttp
 import simplejson
 
+from senslify.errors import generate_rest_error
 from senslify.verify import verify_rest_request
 
 
-async def handle_find(request, target, params):
+async def find_handler(request, target, params):
     """Defines a handler for the find target.
     
     Args:
         request (aiohttp.web.Request): The request that initiated the REST handler.
         target (str): The target to initiate the find command against.
         params (dict): A dictionary containing parameters for the target.
+        
+    Returns:
+        (aiohttp.web.Response): A Response object containing the results of 
+        executing the find_handler as a serialized JSON object in its body.
     """
+    # define the results set
     results = []
-    if verify_rest_request(target, params):
-        # target handler for groups
-        if target == 'groups':
-            for doc in request.app['db'].get_groups():
-                results.append(doc)
-        # target handler for rtypes
-        elif target == 'rtypes':
-            for doc in request.app['db'].get_rtypes():
-                results.append(doc)
-        # target handler for sensors
-        elif target == 'sensors':
-            for doc in request.app['db'].get_sensors(groupid):
-                results.append(doc)
-        elif target == 'readings':
-            for doc in request.app['db'].get_readings():
-                results.append(doc)
+    
+    # target handler for groups
+    if target == 'groups':
+        for doc in request.app['db'].get_groups():
+            results.append(doc)
+    # target handler for rtypes
+    elif target == 'rtypes':
+        for doc in request.app['db'].get_rtypes():
+            results.append(doc)
+    # target handler for sensors
+    elif target == 'sensors':
+        groupid = params['groupid']
+        for doc in request.app['db'].get_sensors(groupid):
+            results.append(doc)
+    elif target == 'readings':
+        for doc in request.app['db'].get_readings():
+            results.append(doc)
+    
+    # build and return the response
     resp_body = dict()
     resp_body['results'] = results
     return aiohttp.web.Response(body=simplejson.dumps(resp_body))
     
 
-async def handle_stats(request, target, params):
+async def stats_handler(request, target, params):
     """Defines a handler for the stats target.
     
     Args:
@@ -58,7 +71,12 @@ async def handle_stats(request, target, params):
         target (str): The target to initiate the find command against.
         params (dict): A dictionary containing parameters for the target.
     """
-    pass
+    if target == 'group':
+        pass
+    elif target == 'sensors':
+        pass
+    elif target == 'readings':
+        pass
 
 
 async def rest_handler(request):
@@ -73,16 +91,16 @@ async def rest_handler(request):
     
     Args:
         request (aiohttp.web.Request): The web request that initiated the handler.
-    """
-    # verify that the request is valid
-    valid, text = verify_rest_request(request)
+    """    
+    # verify the request
+    valid, reason = verify_rest_request(request)
     if not valid:
-        return aiohttp.web.Response(status=403, text=text)
+        return generate_rest_error(reason)
     
-    # get the querystring arguments
-    cmd = request.query['cmd']
-    target = request.query['target']
-    params = simplejson.loads(request.query['params'])
+    # get the parameters
+    cmd = request.query('cmd')
+    target = request.query('target')
+    params = simplejson.loads(request.query('params'))
     
     # pass off to the correct target handler
     if cmd == 'find':

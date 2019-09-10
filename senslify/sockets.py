@@ -146,6 +146,7 @@ async def ws_handler(request):
                 continue
             cmd = js['cmd'];
             sensorid = int(js['sensorid'])
+            
             # adds the requesting websocket as a receiver for messages from
             #   the indicated sensor
             if cmd == 'RQST_JOIN':
@@ -157,13 +158,14 @@ async def ws_handler(request):
                 break
             # handle requests from users to switch to a different reading type
             elif cmd == 'RQST_STREAM':
+                # perform verification checks
                 if 'groupid' not in js or 'rtypeid' not in js:
                     continue
+                # get request info
                 groupid = js['groupid']
                 rtypeid = js['rtypeid']
                 # change the stream
                 await _change_stream(request.app['rooms'], sensorid, ws, rtypeid)
-                
                 # construct a response containing the top 100 readings for the stream
                 resp = dict()
                 resp['cmd'] = 'RESP_STREAM'
@@ -172,7 +174,26 @@ async def ws_handler(request):
                     reading['rstring'] = filter_reading(reading)
                     readings.append(reading)
                 resp['readings'] = readings
-                
+                # send the response to the client
+                await ws.send_str(simplejson.dumps(resp))
+            # handle requests for getting stats on sensors
+            elif cmd == 'RQST_SENSOR_STATS':
+                # perform verification checks
+                if ('groupid' not in js or 
+                        'rtypeid' not in js or 
+                        'start_date' not in js or 
+                        'end_date' not in js):
+                    continue
+                # get request info
+                groupid = js['groupid']
+                rtypeid = js['rtypeid']
+                start_date = js['start_date']
+                end_date = js['end_date']
+                # get stats info from the database
+                resp = dict()
+                resp['cmd'] = 'RESP_SENSOR_STATS'
+                resp['stats'] = await request.app['db'].stats_sensor(sensorid, 
+                    groupid, rtypeid, start_date, end_date)
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:

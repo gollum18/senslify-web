@@ -13,6 +13,9 @@
 # Author: Christen Ford
 # Description: Contains useful methods for verifying Senslify data objects.
 
+import simplejson
+
+
 # used in the rest validation command
 valid_rest_cmds = ('find', 'stats')
 valid_rest_targets = ('groups', 'rtypes', 'sensors', 'readings')
@@ -32,6 +35,8 @@ def verify_rest_request(request):
         return False
     if 'target' not in request.query or request.query['target'] is None:
         return False
+    
+    target = request.query['target']
     if target == 'sensors' or target == 'readings':
         if 'params' not in request.query or request.query['params'] is None:
             return False
@@ -47,11 +52,11 @@ def verify_rest_request(request):
     
     # check that the target is valid
     global valid_rest_targets
-    if target not in valid_targets:
+    if target not in valid_rest_targets:
         return False, '\'{}\' is not a valid target!'.format(target)
         
-    # check that the stats cmd was not called on anything but readings
-    if cmd == 'stats' and target != 'readings':
+    # stats can be called on groups or sensors with finer granularity 
+    if cmd == 'stats' and target != 'groups' and target != 'sensors':
         return False, '\'stats\' cmd can only be called on the \'readings\' target!'
     
     # no need to check the parameters if the target is not sensors or readings
@@ -62,6 +67,8 @@ def verify_rest_request(request):
     if not verify_rest_params(request.query['target'], 
                               simplejson.loads(request.query['params'])):
         return False, 'Invalid \'params\' for target {}!'.format(target)
+    
+    # done checking
     return True, ''
     
     
@@ -73,16 +80,17 @@ def verify_rest_params(target, params):
         params (dict): A dictionary containing params corresponding to the target.
     
     Returns:
-        True if the REST request is valid, False otherwise.
+        (boolean): Whether the REST params are valid.
     """
+    # groupid is required regardless
+    if 'groupid' not in params:
+        return False
+    
+    # additionally, sensorid is required for sensors
     if target == 'sensors':
-        if 'groupid' not in params:
+        if 'sensorid' not in params:
             return False
-    elif target == 'readings':
-        if 'groupid' not in params:
-            return False
-        elif 'sensorid' not in params:
-            return False
+    
     return True
 
 

@@ -15,7 +15,7 @@
 
 # TODO: Refactor the errors handlers so that they catch generic errors
 
-import aiohttp, aiohttp_jinja2
+import aiohttp, aiohttp_jinja2, datetime
 import simplejson
 
 from senslify.filters import filter_reading
@@ -35,6 +35,7 @@ async def info_handler(request):
         location = request.app.router['sensors'].url_for()
         raise aiohttp.web.HTTPFound(location=location)
     status = 200
+    
     # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
     sensorid = int(request.query['sensorid'])
@@ -43,12 +44,25 @@ async def info_handler(request):
     host = request.host
     route = '/ws'
     ws_url = prefix + host + route
+    
     # build the sensor readings query
     rtypes = []
     num_readings = int(request.app['config'].num_readings)
     try:
         async for rtype in request.app['db'].get_rtypes():
             rtypes.append(rtype)
+    except Exception as e:
+        status = 403
+        if request.app['config'].debug:
+            text = 'HTTP RESPONSE 403:\n{}'.format(str(e))
+        else:
+            text = 'HTTP RESPONSE 403:\nAn error has occurred with the database!'
+    
+    # build the stats dictionary with default entries
+    now = datetime.datetime()
+    try:
+        stats = await request.app['db'].stats_sensor(sensorid, groupid, 
+            rtypeid, now)
     except Exception as e:
         status = 403
         if request.app['config'].debug:
@@ -62,7 +76,9 @@ async def info_handler(request):
         return {'title': 'Sensor Info',
                 'sensorid': sensorid,
                 'groupid': groupid,
+                'rtypeid': rtypeid,
                 'rtypes': rtypes,
+                'stats': stats,
                 'num_readings': num_readings,
                 'ws_url': ws_url}
 

@@ -1,13 +1,12 @@
 {% extends 'base.jinja2' %}
 
 {% block head %}
+    <!-- Make sure to test the new versions of these libraries prior to upgrading them. -->
     <!-- Pull down ChartJS for graphing and Moment for time -->
-    <script src="https://cdn.jsdelivr.net/combine/npm/moment@2.24.0,npm/chart.js@2.8.0"></script>
-    <!-- Hammer and ChartJS Zoom Extension -->
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.24.0/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0/dist/Chart.min.js"></script>
     <!-- ChartJS Realtime Extension -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@latest/dist/chartjs-plugin-streaming.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@1.8.0/dist/chartjs-plugin-streaming.min.js"></script>
 {% endblock %}
 
 {% block header %}
@@ -15,8 +14,32 @@
 {% endblock %}
 
 {% block content %}
-    <h2>Displays Live Data and Recent Readings</h2>
+    <!-- This section defines the stats display. -->
     <section>
+        <h2 id="stats_header"></h2>
+        <table>
+            <tr>
+                <th>Average</th>
+                <th>Minimum</th>
+                <th>Maximum</th>
+            </tr>
+            <tr>
+                <td id="td_stats_avg">{{ stats['avg'] }}</td>
+                <td id="td_stats_min">{{ stats['min'] }}</td>
+                <td id="td_stats_max">{{ stats['max'] }}</td>
+            </tr>
+        </table>
+        <div>
+            <label for="start_date_picker">Start Date:</label>
+            <input id="start_date_picker" type="date">
+            <label for="end_date_picker">End Date:</label>
+            <input id="end_date_picker" type="date">
+            <input type="button" value="Get Stats" onclick="onStatsClicked();">
+        </div>
+    </section>
+    <!-- This section defines the live chart. -->
+    <section>
+        <h2>Live Display for Sensor: {{ sensorid }}</h2>
         <div class="chart-container" style="position: relative; height:40vh; width:80vw">
             <canvas id="canvas_chart"></canvas>
         </div>
@@ -86,7 +109,7 @@
          * indicated by sensorid.
          */
         function joinHandler() {
-            var rqst = {'cmd': 'RQST_JOIN', 'sensorid': sensorid};
+            let rqst = {'cmd': 'RQST_JOIN', 'sensorid': sensorid};
             ws.send(JSON.stringify(rqst));
         }
         
@@ -98,7 +121,7 @@
          */
         function readingHandler(resp) {
             // get the list of readings
-            var rlist = $("#list_readings");
+            let rlist = $("#list_readings");
             
             // evict the oldest reading if at the limit
             if (rlist.children().length === rlim) {
@@ -123,6 +146,27 @@
         }
         
         /**
+         * Client side WS handler that handles received messages (stas) from
+         * the server. The client receives an up-to-date view on the stats for 
+         * a single RType and Sensor. The stats are stored in the message using
+         * the following mapping: 
+         *   stats: avg, min, max
+         * @param resp The response from the server
+         */
+        function statsHandler(resp) {
+            let stats = resp.stats;
+            let rtext = $("#sel_rtype option:selected").text();
+            let start_date = $("#start_date_picker").val();
+            let end_date = $("#end_date_picker").val()
+            
+            $("#stats_header").text(`Showing ${rtext} stats for the range ${start_date} - ${end_date}:`);
+                
+            $("#td_stats_avg").text(stats.avg);
+            $("#td_stats_min").text(stats.min);
+            $("#td_stats_max").text(stats.max);
+        }
+        
+        /**
          * Client side WS handler that handles received messages (a dataset)
          * from the server. The client receives an up-to-date dataset containing
          * the top 100 most recent readings for the sensorid and rtypeid they
@@ -131,13 +175,13 @@
          */ 
         function streamHandler(resp) {
             // get the readings from the response
-            var readings = resp.readings;
+            let readings = resp.readings;
             
             // reset the chart
-            resetChart();
+            reloadChart();
             
-            // reset the list
-            resetList(resp.readings)
+            // reload the list
+            reloadList(resp.readings)
         }
         
         /**
@@ -145,7 +189,7 @@
          * Handles cleaning up after it.
          */
         function onWSClose() {
-            // TODO: Cleanup after the WebSocket
+			rtChart.destroy();
         }
         
         /**
@@ -164,17 +208,26 @@
         }
         
         /**
-         *
+         * Routes messages received over the WebSocket interface.
+         * @param msg A message received via the WebSocket.
          */
         function onWSReceive(msg) {
             // Parse the response from the server
-            var resp = JSON.parse(msg.data);
+            let resp = JSON.parse(msg.data);
             
             // route the message based on response command
-            if (resp.cmd === "RESP_READING") { // handles individual readings
+            
+            // handles individual readings
+            if (resp.cmd === "RESP_READING") {
                 readingHandler(resp);
-            } else if (resp.cmd = "RESP_STREAM") { // handles whole datasets
+            }
+            // handles whole datasets
+            else if (resp.cmd === "RESP_STREAM") {
                 streamHandler(resp);
+            }
+            // handles stats for datasets
+            else if (resp.cmd === "RESP_SENSOR_STATS") {
+                statsHandler(resp);
             }
         }
         
@@ -193,7 +246,7 @@
          */
         function createChart() {
             // get the context for the chart
-            var ctx = $('#canvas_chart')[0].getContext('2d');
+            let ctx = $('#canvas_chart')[0].getContext('2d');
             
             // return the chart
             return new Chart(ctx, {
@@ -226,47 +279,15 @@
                             display: true
                         }]
                     }
-                },
-                plugins: {
-                    zoom: {
-		                // Container for pan options
-		                pan: {
-			                enabled: true,
-			                mode: 'xy',
-			                rangeMin: {
-				                x: null,
-				                y: null
-			                },
-			                rangeMax: {
-				                x: null,
-				                y: null
-			                }
-		                },
-		                // Container for zoom options
-		                zoom: {
-			                enabled: true,
-			                drag: true,
-			                mode: 'xy',
-			                rangeMin: {
-				                x: null,
-				                y: null
-			                },
-			                rangeMax: {
-				                x: null,
-				                y: null
-			                },
-			                speed: 0.1
-		                }
-	                }
                 }
             });
         }
         
         /**
-         * Resets the chart with a new dataset.
+         * Reloads the chart with a new dataset.
          * @param dataset The dataset to load into the chart.
          */
-        function resetChart() {
+        function reloadChart() {
             if (rtChart != null) {
                 // destroy the original chart
                 rtChart.destroy();
@@ -277,10 +298,10 @@
         }
         
         /**
-         * Resets the list with a new dataset.
+         * Reloads the list with a new dataset.
          * @param dataset The dataset to load into the list.
          */
-        function resetList(dataset) {
+        function reloadList(dataset) {
             // empty display of all children
             $("#list_readings").empty();
             
@@ -293,12 +314,39 @@
         }
         
         /**
+         * Handles onclick events for the stats readout.
+         */
+        function onStatsClicked() {
+            let rtypeid = $("#start_date_picker").val();
+            let start_date = new Date($("#end_date_picker").val());
+            let end_date = new Date($("#sel_rtype").val());
+            
+            # TODO: verify that the dates or rtype actually changed
+            
+            # verify the start date is less than the end date
+            if (start_date >= end_date) {
+                return;
+            }
+            
+            let msg = {
+                'cmd': 'RQST_SENSOR_STATS',
+                'sensorid': sensorid,
+                'groupid': groupid,
+                'rtypeid': rtypeid,
+                'start_date': start_date,
+                'end_date': end_date
+            };
+            
+            ws.send(JSON.stringify(msg));
+        }
+        
+        /**
          * Handles onchange events for the rtype selector.
          */
         function onStreamChanged() {
-            var rtypeid = $("#sel_rtype").val()
+            let rtypeid = $("#sel_rtype").val()
             
-            var msg = {
+            let msg = {
                 'cmd': 'RQST_STREAM',
                 'sensorid': sensorid,
                 'groupid': groupid,

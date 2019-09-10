@@ -214,6 +214,26 @@ class DatabaseProvider:
     def open(self):
         """Opens a connection to the backing database server."""
         raise NotImplementedError
+
+
+    async def stats_group(self, groupid, rtypeid, start=None, end=None):
+        """Returns the stats for an entire group of sensors.
+        
+        Args:
+            groupid (int): The id of the group the sensor belongs to.
+            rtypeid (int): The id of the reading type to retrieve stats for.
+            start (datetime.datetime): The start time that begins the range
+            for stats (default:None).
+            end (datetime.datetime): The end time that ends the range for
+            stats (default: None).
+            
+        Returns:
+            (generator): A Python generator over the stats from the database.
+            
+        Raises:
+            (Exception): If there was a problem interacting with the database.
+        """
+        raise NotImplementedError
         
         
     async def stats_sensor(self, sensorid, groupid, rtypeid, start, end):
@@ -227,6 +247,9 @@ class DatabaseProvider:
             for stats.
             end (datetime.datetime): The end time that ends the range for
             stats.
+            
+        Raises:
+            (Exception): If there was a problem interacting with the database.
         """
         raise NotImplementedError
 
@@ -241,6 +264,10 @@ class MongoProvider(DatabaseProvider):
     database (not that they would anyway - in reality, unless a Session object
     is used, MongoDB only provides atomicity at the collection level).
     """
+    
+    # the maximum time in milliseconds that aggregate operations are limited 
+    #   to running on the server
+    MAX_AGGREGATE_MS = 2500
     
     def __init__(self, conn_str='mongodb://0.0.0.0:27001', db='senslify'):
         """Returns an object capable of interacting with the Senslify MongoDB
@@ -610,22 +637,80 @@ class MongoProvider(DatabaseProvider):
             except pymongo.errors.PyMongoError as e:
                 print('Error: Cannot continue, there was a problem opening the database connection!\n{}'.format(str(e)))
                 sys.exit(-1)
-                
-                
-    async def stats_sensor(self, sensorid, groupid, rtypeid, 
-                           start=None, end=None):
-        """Returns the stats for a specific sensor.
+
+
+    async def stats_group(self, groupid, rtypeid, start, end):
+        """Returns the stats for an entire group of sensors.
         
+        Args:
+            groupid (int): The id of the group the sensor belongs to.
+            rtypeid (int): The id of the reading type to retrieve stats for.
+            start (datetime.datetime): The start time that begins the range
+            for stats.
+            end (datetime.datetime): The end time that ends the range for
+            stats.
+            
+        Returns:
+            (generator): A Python generator over the stats from the database.
+            
+        Raises:
+            (Exception): If there was a problem interacting with the database.
+        """
+        # bail if we arent connected to the database
+        if not self._open():
+            raise Exception('Cannot retrieve stats for sensor, database connection not open!')
+        # build the pipeline
+        pipeline = [
+            # filter all elements that do not match the indicated group and rtype
+            {"$match": 
+                {"$and": [
+                    {"$eq": ["$groupid", groupid]},
+                    {"$eq": ["$rtypeid", rtypeid]}
+                ]}
+            },
+            # optimization step - sort descending by time
+            {"$sort": 
+                {"$ts": -1}
+            },
+            # filter out all elements that do not fit within the time bound
+            {"$match":
+                {"$and": [
+                    {"$gte": [start, "$ts"]}, 
+                    {"$lte": [end, "$ts"]}
+                ]}
+            }
+        ]
+        try:
+            with self._conn[self._db].readings.aggregate(pipeline,
+                    allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
+                for doc in cursor:
+                    yield doc
+        except Exception as e:
+            raise e
+
+
+    async def stats_sensor(self, sensorid, groupid, rtypeid, start, end):
+        """Returns the stats for a specific sensor.
+
         Args:
             sensorid (int): The id of the sensor to retrieve stats on.
             groupid (int): The id of the group the sensor belongs to.
             rtypeid (int): The id of the reading type to retrieve stats for.
             start (datetime, datetime): The start time that begins the range
-            for stats (default: None).
+            for stats.
             end (datetime.datetime): The end time that ends the range for
-            stats (default: None).
+            stats.
+            
+        Returns:
+            (generator): A Python generator over the stats from the database.
+            
+        Raises:
+            (Exception): If there was a problem interacting with the database.
         """
-        # This pipeline should return min, max, and avg for the rtype.
+        # bail if not connected to the database
+        if not self._open:
+            raise Exception('Cannot retrieve stats for sensor, database connection not open!')
+        # build the stats pipeline
         pipeline = [
             # filter by sensorid, groupid, and rtypeid
             #   these are all indexed so this should be fast
@@ -679,12 +764,9 @@ class MongoProvider(DatabaseProvider):
                 ]
             }}
         ]
-        if not self._open:
-            print('Cannot retrieve stats for sensor, database connection not open!')
-            return
         try:
             with self._conn[self._db].readings.aggregate(pipeline,
-                           allowDiskUse=True, maxTimeMS=500) as cursor:
+                    allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
                 for doc in cursor:
                     yield doc
         except Exception as e:
