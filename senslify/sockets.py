@@ -162,8 +162,8 @@ async def ws_handler(request):
                 if 'groupid' not in js or 'rtypeid' not in js:
                     continue
                 # get request info
-                groupid = js['groupid']
-                rtypeid = js['rtypeid']
+                groupid = int(js['groupid'])
+                rtypeid = int(js['rtypeid'])
                 # change the stream
                 await _change_stream(request.app['rooms'], sensorid, ws, rtypeid)
                 # construct a response containing the top 100 readings for the stream
@@ -185,19 +185,15 @@ async def ws_handler(request):
                         'end_date' not in js):
                     continue
                 # get request info
-                groupid = js['groupid']
-                rtypeid = js['rtypeid']
-                start_date = js['start_date']
-                end_date = js['end_date']
+                groupid = int(js['groupid'])
+                rtypeid = int(js['rtypeid'])
+                start_date = int(js['start_date'])
+                end_date = int(js['end_date'])
                 # get stats info from the database
                 resp = dict()
                 resp['cmd'] = 'RESP_SENSOR_STATS'
                 resp['stats'] = await request.app['db'].stats_sensor(sensorid, 
                     groupid, rtypeid, start_date, end_date)
-                # replace the elements in the doc with what the webpage expects
-                stats['min'] = stats['min'][0]['min']
-                stats['max'] = stats['max'][0]['max']
-                stats['avg'] = stats['avg'][0]['avg']
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:

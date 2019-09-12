@@ -75,6 +75,7 @@ def build_app(config_file=
     
     # setup any filters for the application to use
     filters = {
+        "date": senslify.filters.filter_date, # YYYY-MM-DD date format
         "datetime": senslify.filters.filter_datetime, # i18n datetime filter
         "simplejson_dumps": simplejson.dumps,
         "rstring": senslify.filters.filter_reading # custom reading filter

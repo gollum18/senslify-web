@@ -64,20 +64,7 @@ async def info_handler(request):
     # get the time span
     end = datetime.timestamp(datetime.now())
     start = datetime.timestamp(datetime.today().replace(day=1))
-    # build the stats dictionary with default entries
-    stats = None
-    try:
-        stats = await request.app['db'].stats_sensor(sensorid, groupid, 
-            rtypeid, start, end)
-        # replace the elements in the doc with what the webpage expects
-        stats['min'] = stats['min'][0]['min']
-        stats['max'] = stats['max'][0]['max']
-        stats['avg'] = stats['avg'][0]['avg']
-    except Exception as e:
-        if request.app['config'].debug:
-            text = traceback_str(e)
-        else:
-            text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
+    
     if status != 200:
         return aiohttp.web.Response(status=status, text=text)
     else:
@@ -88,9 +75,10 @@ async def info_handler(request):
             'groupid': groupid,
             'rtypeid': rtypeid,
             'rtypes': rtypes,
-            'stats': stats,
             'num_readings': num_readings,
-            'ws_url': ws_url
+            'ws_url': ws_url,
+            'start_date': start,
+            'end_date': end
         }
 
 

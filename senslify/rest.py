@@ -36,9 +36,10 @@ async def find_handler(request, target, params):
     Returns:
         (aiohttp.web.Response): A Response object containing the results of 
         executing the find_handler as a serialized JSON object in its body.
+        Documents are keyed via the 'docs' key.
     """
     # define the results set
-    results = []
+    docs = []
     
     # target handler for groups
     if target == 'groups':
@@ -59,7 +60,7 @@ async def find_handler(request, target, params):
     
     # build and return the response
     resp_body = dict()
-    resp_body['results'] = results
+    resp_body['docs'] = results
     return aiohttp.web.Response(body=simplejson.dumps(resp_body))
     
 
@@ -70,13 +71,28 @@ async def stats_handler(request, target, params):
         request (aiohttp.web.Request): The request that initiated the REST handler.
         target (str): The target to initiate the find command against.
         params (dict): A dictionary containing parameters for the target.
+        
+    Returns:
+        (aiohttp.web.Response) A Response object containing the results of 
+        executing the stats_handler as a serialized JSON object in its body.
+        Statistics are keyed via the 'stats' key.
     """
-    if target == 'group':
-        pass
+    # validation is performed in the rest dispatching method
+    groupid = int(params['groupid'])
+    rtypeid = int(params['rtypeid'])
+    start_date = int(params['start_date'])
+    end_date = int(params['end_date'])
+    resp_body = dict()
+    # call the appropriate db handler based on target
+    if target == 'groups':
+        resp_body['stats'] = await request.db.stats_group(groupid, rtypeid, start_date, end_date)
     elif target == 'sensors':
-        pass
-    elif target == 'readings':
-        pass
+        sensorid = int(params['sensorid'])
+        resp_body['stats'] = await request.db.stats_sensor(sensorid, groupid, rtypeid, start_date, end_date)
+    else: # returned when the target is incorrect
+        return aiohttp.web.Response()
+    # the standard return - if we got here, then everything went ok
+    return aiohttp.web.Response(body=simplejson.dumps(resp_body))
 
 
 async def rest_handler(request):

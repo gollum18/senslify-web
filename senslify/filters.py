@@ -13,7 +13,23 @@
 # Author: Christen Ford
 # Purpose: Houses filter functions for use with rendering via aiohttp_jinja2.
 
-from babel.dates import format_datetime
+import babel.dates
+import datetime
+    
+
+def filter_date(d):
+    """Filters a Unix timestamp into a YYYY-MM-DD format suitable for 
+    HTML date input controls.
+    
+    Arguments:
+        date (int): A Unix timestamp.
+        
+    Returns:
+        (str): Date string in the form YYYY-MM-DD.
+    """
+    d = datetime.datetime.fromtimestamp(d).date()
+    return babel.dates.format_date(d, 'YYYY-MM-dd')
+
 
 def filter_datetime(dt, fmt='medium'):
     """'i18n' compliant datetime filter for jinja2.
@@ -30,7 +46,7 @@ def filter_datetime(dt, fmt='medium'):
     # return medium dateformat by default
     else:
         fmt = "EE dd.MM.y HH:mm:ss"
-    return format_datetime(dt, fmt)
+    return babel.dates.format_datetime(dt, fmt)
     
 
 def filter_reading(reading):

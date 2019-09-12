@@ -15,7 +15,7 @@
 {% block content %}
     <!-- This section defines the stats display. -->
     <section>
-        <h2 id="stats_header"></h2>
+        <h3 id="stats_header"></h3>
         <table>
             <tr>
                 <th>Average</th>
@@ -23,22 +23,22 @@
                 <th>Maximum</th>
             </tr>
             <tr>
-                <td id="td_stats_avg">{{ stats['avg'] }}</td>
-                <td id="td_stats_min">{{ stats['min'] }}</td>
-                <td id="td_stats_max">{{ stats['max'] }}</td>
+                <td id="td_stats_avg">0</td>
+                <td id="td_stats_min">0</td>
+                <td id="td_stats_max">0</td>
             </tr>
         </table>
         <div>
             <label for="start_date_picker">Start Date:</label>
-            <input id="start_date_picker" type="date">
+            <input id="start_date_picker" type="date" value="{{ start_date|date }}">
             <label for="end_date_picker">End Date:</label>
-            <input id="end_date_picker" type="date">
+            <input id="end_date_picker" type="date" value="{{ end_date|date }}">
             <input type="button" value="Get Stats" onclick="onStatsRequested();">
         </div>
     </section>
     <!-- This section defines the live chart. -->
     <section>
-        <h2>Live Display for Sensor: {{ sensorid }}</h2>
+        <h3>Live Display for Sensor: {{ sensorid }}</h3>
         <div class="chart-container" style="position: relative; height:40vh; width:80vw">
             <canvas id="canvas_chart"></canvas>
         </div>
@@ -154,11 +154,12 @@
                     let newMu = oldMu + ((value - oldMu) / readingsSoFar);
                     tdAvg.text(newMu.toString());
                 }
-            } catch {
+            } catch (err) {
+                console.log(err);
                 readingsSoFar = 0;
-                tdMin.text("N/A");
-                tdMax.text("N/A");
-                tdAvg.text("N/A");
+                tdMin.text("0");
+                tdMax.text("0");
+                tdAvg.text("0");
             }
             
             // add the reading to the front of the list
@@ -192,7 +193,7 @@
             let start_date = $("#start_date_picker").val();
             let end_date = $("#end_date_picker").val()
             
-            $("#stats_header").text(`Showing ${rtext} stats for the range ${start_date} - ${end_date}:`);
+            $("#stats_header").text(`Showing ${rtext} stats for the range: ${start_date} - ${end_date}`);
                 
             $("#td_stats_avg").text(stats.avg);
             $("#td_stats_min").text(stats.min);
@@ -237,6 +238,7 @@
             // Only get the initial dataset when the document has loaded
             $(document).ready(function() {
                 onStreamChanged();
+                onStatsRequested();
             });
         }
         
@@ -350,9 +352,9 @@
          * Handles onclick events for the stats readout.
          */
         function onStatsRequested() {
-            let rtypeid = $("#start_date_picker").val();
-            let start_date = new Date($("#end_date_picker").val());
-            let end_date = new Date($("#sel_rtype").val());
+            let rtypeid = $("#sel_rtype option:selected").val();
+            let start_date = $("#start_date_picker").val();
+            let end_date = $("#end_date_picker").val();
             
             // TODO: verify that the dates or rtype actually changed
             
@@ -361,6 +363,11 @@
                 return;
             }
             
+            // convert the start and end dates over to moment
+            start_date = moment(start_date).format('X')
+            end_date = moment(end_date).format('X')
+            
+            // construct the message for the server
             let msg = {
                 'cmd': 'RQST_SENSOR_STATS',
                 'sensorid': sensorid,
@@ -370,7 +377,11 @@
                 'end_date': end_date
             };
             
+            // send the message to the server
             ws.send(JSON.stringify(msg));
+            
+            // reset the number of readings
+            readingsSoFar = 0
         }
         
         /**
@@ -378,6 +389,8 @@
          */
         function onStreamChanged() {
             let rtypeid = $("#sel_rtype").val()
+            
+            // TODO: check that the rtype actually changed
             
             let msg = {
                 'cmd': 'RQST_STREAM',
@@ -387,6 +400,9 @@
             };
             
             ws.send(JSON.stringify(msg));
+            
+            // fire the onStatsRequested handler too
+            onStatsRequested();
         }
     </script>
 {% endblock %}

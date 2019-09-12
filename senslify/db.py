@@ -740,12 +740,15 @@ class MongoProvider(DatabaseProvider):
             # simultaneously determine the min, max, and avg
             # TODO: We may be able to do this entirely in the above 
             #   project
+            # $facet allows for running simultaneous operations across a
+            #   collection without having to run through the collection each 
+            #   with each operation
             {"$facet": {
                 "min": [
                     {"$group": 
                         {
                             "_id": None,
-                            "min": {"$min": "$val"}
+                            "val": {"$min": "$val"}
                         }
                     }
                 ],
@@ -753,7 +756,7 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "max": {"$max": "$val"}
+                            "val": {"$max": "$val"}
                         }
                     }
                 ],
@@ -761,15 +764,29 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "avg": {"$avg": "$val"}
+                            "val": {"$avg": "$val"}
                         }
                     }
                 ]
             }}
         ]
         try:
+            # run the aggregation
+            doc = None
             with self._conn[self._db].readings.aggregate(pipeline,
                     allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                return cursor.next()
+                doc = cursor.next()
+            # build the stats container
+            stats = dict()
+            if doc and doc['min'] and doc['max'] and doc['avg']:
+                doc['min'] = doc['min'][0]['val']
+                doc['max'] = doc['max'][0]['val']
+                doc['avg'] = doc['avg'][0]['val']
+            else:
+                doc['min'] = 0
+                doc['max'] = 0
+                doc['avg'] = 0
+            # return the stats container
+            return stats
         except Exception as e:
             raise e
