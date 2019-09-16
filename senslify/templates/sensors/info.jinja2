@@ -86,19 +86,25 @@
         // Define handlers for the window
         //
         
-        /**
-         * Fired when the user navigates away from the page.
-         * Signals a teardown of the WS at the server as well to teardown the
-         * WS on the client.
-         */
-        function onWindowUnload() {
+        function teardown() {
             let msg = {'cmd': 'RQST_CLOSE', 'sensorid': sensorid};
             ws.send(JSON.stringify(msg));
             ws.close();
         }
         
-        // Register JQuery window event handlers
-        $(window).on("unload", onWindowUnload);
+        /**
+         * Handles back and forward events from the browser.
+         * Signals a teardown of the WS at the server as well to teardown the
+         * WS on the client.
+         */
+        window.onhashchange = function() {
+            teardown();
+        }
+        
+        // Tears down the WebSocket when the window is closed.
+        $(window).on("unload", () => {
+            teardown();
+        });
         
         //
         // Define handlers for the WebSocket
@@ -238,7 +244,6 @@
             // Only get the initial dataset when the document has loaded
             $(document).ready(function() {
                 onStreamChanged();
-                onStatsRequested();
             });
         }
         

@@ -748,7 +748,7 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "val": {"$min": "$val"}
+                            "value": {"$min": "$val"}
                         }
                     }
                 ],
@@ -756,7 +756,7 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "val": {"$max": "$val"}
+                            "value": {"$max": "$val"}
                         }
                     }
                 ],
@@ -764,7 +764,7 @@ class MongoProvider(DatabaseProvider):
                     {"$group": 
                         {
                             "_id": None,
-                            "val": {"$avg": "$val"}
+                            "value": {"$avg": "$val"}
                         }
                     }
                 ]
@@ -779,13 +779,13 @@ class MongoProvider(DatabaseProvider):
             # build the stats container
             stats = dict()
             if doc and doc['min'] and doc['max'] and doc['avg']:
-                doc['min'] = doc['min'][0]['val']
-                doc['max'] = doc['max'][0]['val']
-                doc['avg'] = doc['avg'][0]['val']
+                stats['min'] = doc['min'][0]['value']
+                stats['max'] = doc['max'][0]['value']
+                stats['avg'] = doc['avg'][0]['value']
             else:
-                doc['min'] = 0
-                doc['max'] = 0
-                doc['avg'] = 0
+                stats['min'] = 0
+                stats['max'] = 0
+                stats['avg'] = 0
             # return the stats container
             return stats
         except Exception as e:
