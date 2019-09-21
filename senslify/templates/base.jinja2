@@ -2,9 +2,10 @@
 <html lang="en">
     <head>
         <title>{% block title %}{{ title }}{% endblock%} - Senslify</title>
-        <nav>
-            <ul>
-                <li><a href="{{ url('index') }}">Home</a></li>
+        <nav class="navbar navbar-light bg-light">
+            <span class="navbar-brand" href="#">Senslify</span>
+            <ul class="navbar-nav">
+                <li class="navbar-item"><a href="{{ url('index') }}">Home</a></li>
             </ul>
         </nav>
         {% block head %}{% endblock %}

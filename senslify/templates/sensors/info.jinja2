@@ -9,41 +9,49 @@
 {% endblock %}
 
 {% block header %}
-    <h1>{{ title }} - Senslify</h1>
+    <h2>{{ title }} - Senslify</h2>
 {% endblock %}
 
 {% block content %}
-    <!-- This section defines the stats display. -->
-    <section>
-        <h3 id="stats_header"></h3>
-        <table>
-            <tr>
-                <th>Average</th>
-                <th>Minimum</th>
-                <th>Maximum</th>
-            </tr>
-            <tr>
-                <td id="td_stats_avg">0</td>
-                <td id="td_stats_min">0</td>
-                <td id="td_stats_max">0</td>
-            </tr>
-        </table>
-        <div>
-            <label for="start_date_picker">Start Date:</label>
-            <input id="start_date_picker" type="date" value="{{ start_date|date }}">
-            <label for="end_date_picker">End Date:</label>
-            <input id="end_date_picker" type="date" value="{{ end_date|date }}">
-            <input type="button" value="Get Stats" onclick="onStatsRequested();">
+    <!-- This section defines the stats display for real-time stats. -->
+    <section class="container-fluid">
+        <div id="row">
+            <h3>Real-time stats for Sensor: {{ sensorid }}:</h3>
+        </div>
+        <div id="row">
+            <table class="table">
+                <tr>
+                    <th scope="col">Average</th>
+                    <th scope="col">Minimum</th>
+                    <th scope="col">Maximum</th>
+                </tr>
+                <tr>
+                    <td id="rt_stats_avg">0</td>
+                    <td id="rt_stats_min">0</td>
+                    <td id="rt_stats_max">0</td>
+                </tr>
+            </table>
+        </div>
+        <div id="row">
+            <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#statsModal">
+              View Historical Stats
+            </button>
         </div>
     </section>
     <!-- This section defines the live chart. -->
-    <section>
-        <h3>Live Display for Sensor: {{ sensorid }}</h3>
-        <div class="chart-container" style="position: relative; height:40vh; width:80vw">
-            <canvas id="canvas_chart"></canvas>
+    <section class="container-fluid">
+        <div class="row">
+            <h3>Live Display for Sensor: {{ sensorid }}</h3>
         </div>
-        <h6>Note: Live display will not update if the sensor is offline.</h6>
-        <div>
+        <div class="row">
+            <div class="chart-container" style="position: relative; height:40vh; width:80vw">
+                <canvas id="canvas_chart"></canvas>
+            </div>
+        </div>
+        <div class="row">
+            <h6>Note: Live display will not update if the sensor is offline.</h6>
+        </div>
+        <div class="row">
             <!-- Used to indicate the reading type to send from server -->
             <label for="sel_rtype">Reading: </label>
             <select id="sel_rtype" onchange="onStreamChanged();">
@@ -53,10 +61,45 @@
             </select>
         </div>
     </section>
-    <section>
+    <section class="container-fluid">
         <h3>Last {{ num_readings }} Readings for Sensor {{ sensorid }}:</h3>
-        <ol id="list_readings"></ol>
+        <ul class="list-group" id="list_readings"></ul>
     </section>
+    <!-- This defines the modal for selecting stats over a time period -->
+    <div class="modal fade bd-example-modal-lg" id="statsModal" tabindex="-1" role="dialog"  aria-labelledby="On-Demand stats" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="stats_header"></h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <table class="table">
+                <tr>
+                    <th scope="col">Average</th>
+                    <th scope="col">Minimum</th>
+                    <th scope="col">Maximum</th>
+                </tr>
+                <tr>
+                    <td id="sel_stats_avg">0</td>
+                    <td id="sel_stats_min">0</td>
+                    <td id="sel_stats_max">0</td>
+                </tr>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <label for="start_date_picker">Start Date:</label>
+            <input id="start_date_picker" type="date" value="{{ start_date|date }}">
+            <label for="end_date_picker">End Date:</label>
+            <input id="end_date_picker" type="date" value="{{ end_date|date }}">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <input type="button" class="btn btn-primary" value="Get Stats" onclick="onStatsRequested();">
+          </div>
+        </div>
+      </div>
+    </div>
 {% endblock %}
 
 {% block footer %}
@@ -133,9 +176,9 @@
             readingsSoFar += 1;
         
             // get the components we need to update
-            let tdMin = $("td_stats_min");
-            let tdMax = $("td_stats_max");
-            let tdAvg = $("td_stats_avg");
+            let tdMin = $("rt_stats_min");
+            let tdMax = $("rt_stats_max");
+            let tdAvg = $("rt_stats_avg");
             let rlist = $("#list_readings");
             
             // evict the oldest reading if at the limit
@@ -144,21 +187,24 @@
             }
             
             // update the stats for the readings
+            // TODO: We probably want to store the stuff for averaging
+            //  separately as the current method works on floats of two
+            //  different precisions
             try {
                 let value = parseFloat(resp.readings[0].val);
                 let oldMin = parseFloat(tdMin.text());
                 let oldMax = parseFloat(tdMax.text());
                 if (value < oldMin) {
-                    tdMin.text(value.toString());
+                    tdMin.text(value.toFixed(4));
                 } else if (value > oldMax) {
-                    tdMax.text(value.toString());
+                    tdMax.text(value.toFixed(4));
                 }
                 if (readingsSoFar === 1) {
-                    tdAvg.text(value.toString());
+                    tdAvg.text(value.toFixed(4));
                 } else {
                     let oldMu = parseFloat(tdAvg().text());
                     let newMu = oldMu + ((value - oldMu) / readingsSoFar);
-                    tdAvg.text(newMu.toString());
+                    tdAvg.text(newMu.toFixed(4));
                 }
             } catch (err) {
                 console.log(err);
@@ -168,8 +214,14 @@
                 tdAvg.text("0");
             }
             
+            // get the first element, remove the active class from it
+            $("#list_readings")
+                .first()
+                .removeClass("active");
+            
             // add the reading to the front of the list
             $('<li/>')
+                    .addClass("list-group-item active")
                     .text(resp.readings[0].rstring)
                     .prependTo($("#list_readings"));
                     
@@ -191,7 +243,7 @@
          * a single RType and Sensor. The stats are stored in the message using
          * the following mapping: 
          *   stats: avg, min, max
-         * @param resp The response from the server
+         * @param resp The response from the server.
          */
         function statsHandler(resp) {
             let stats = resp.stats;
@@ -201,9 +253,9 @@
             
             $("#stats_header").text(`Showing ${rtext} stats for the range: ${start_date} - ${end_date}`);
                 
-            $("#td_stats_avg").text(stats.avg);
-            $("#td_stats_min").text(stats.min);
-            $("#td_stats_max").text(stats.max);
+            $("#sel_stats_avg").text(stats.avg.toFixed(4));
+            $("#sel_stats_min").text(stats.min.toFixed(4));
+            $("#sel_stats_max").text(stats.max.toFixed(4));
         }
         
         /**
@@ -348,9 +400,15 @@
             // rebuild the list with the new values
             dataset.forEach(function(reading) {
                 $('<li/>')
+                    .addClass("list-group-item")
                     .text(reading.rstring)
                     .appendTo($("#list_readings"));
             });
+            
+            // select the active element
+            $("#list_readings")
+                .first()
+                .addClass("active");
         }
         
         /**
