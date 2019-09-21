@@ -96,6 +96,7 @@
             <input id="end_date_picker" type="date" value="{{ end_date|date }}">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
             <input type="button" class="btn btn-primary" value="Get Stats" onclick="onStatsRequested();">
+           </div>
           </div>
         </div>
       </div>
@@ -215,7 +216,7 @@
             }
             
             // get the first element, remove the active class from it
-            $("#list_readings")
+            $("#list_readings > li")
                 .first()
                 .removeClass("active");
             
@@ -405,10 +406,13 @@
                     .appendTo($("#list_readings"));
             });
             
-            // select the active element
-            $("#list_readings")
+            // select the first element from the set of child list items
+            //  apply the active class
+            $("#list_readings > li")
                 .first()
                 .addClass("active");
+                
+            console.log($("#list_readings").first());
         }
         
         /**

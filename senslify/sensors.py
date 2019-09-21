@@ -13,8 +13,6 @@
 # Author: Christen Ford
 # Description: Handles routes intended for the /sensors base route.
 
-# TODO: Refactor the errors handlers so that they catch generic errors
-
 import aiohttp, aiohttp_jinja2
 import simplejson
 

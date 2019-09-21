@@ -115,7 +115,7 @@ def device_chars_command(address, start_handle, end_handle, uuid):
 @click.argument('address')
 @click.option('-t', '--addr-type', default=btle.ADDR_TYPE_PUBLIC, type=click.STRING)
 def device_add_command(address, addr_type):
-    """Adds the devicce but does not connect to it.
+    """Adds the device but does not connect to it.
     
     Arguments:
         address (str): The MAC address of the device.

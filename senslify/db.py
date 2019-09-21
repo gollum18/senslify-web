@@ -729,10 +729,11 @@ class MongoProvider(DatabaseProvider):
             },
             # filter by time
             {"$match": {
-                    "$and": [{
-                        "ts": {"$gte": start}, 
-                        "ts": {"$lte": end}
-                    }]
+                    "ts": {"$lte": end}
+                }
+            },
+            {"$match": {
+                    "ts": {"$gte": start}
                 }
             },
             # project just the value field

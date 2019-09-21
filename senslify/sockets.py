@@ -145,7 +145,10 @@ async def ws_handler(request):
             if 'cmd' not in js or 'sensorid' not in js:
                 continue
             cmd = js['cmd'];
-            sensorid = int(js['sensorid'])
+            try:
+                sensorid = int(js['sensorid'])
+            except Exception:
+                continue
             
             # adds the requesting websocket as a receiver for messages from
             #   the indicated sensor
@@ -162,8 +165,11 @@ async def ws_handler(request):
                 if 'groupid' not in js or 'rtypeid' not in js:
                     continue
                 # get request info
-                groupid = int(js['groupid'])
-                rtypeid = int(js['rtypeid'])
+                try:
+                    groupid = int(js['groupid'])
+                    rtypeid = int(js['rtypeid'])
+                except Exception:
+                    continue
                 # change the stream
                 await _change_stream(request.app['rooms'], sensorid, ws, rtypeid)
                 # construct a response containing the top 100 readings for the stream
@@ -185,10 +191,13 @@ async def ws_handler(request):
                         'end_date' not in js):
                     continue
                 # get request info
-                groupid = int(js['groupid'])
-                rtypeid = int(js['rtypeid'])
-                start_date = int(js['start_date'])
-                end_date = int(js['end_date'])
+                try:
+                    groupid = int(js['groupid'])
+                    rtypeid = int(js['rtypeid'])
+                    start_date = int(js['start_date'])
+                    end_date = int(js['end_date'])
+                except Exception:
+                    continue
                 # get stats info from the database
                 resp = dict()
                 resp['cmd'] = 'RESP_SENSOR_STATS'
