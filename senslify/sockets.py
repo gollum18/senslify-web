@@ -17,13 +17,17 @@
 import aiohttp
 import simplejson
 
+from senslify.errors import DBError
 from senslify.filters import filter_reading
 
+
+#
 # Define WebSocket command methods
+#
 
 def _does_room_exist(rooms, sensorid):
     """ Determines if there is a room for a given sensor or not.
-    
+
     Args:
         rooms (dict): A dictionary containing sensor rooms.
         sensorid (int): The sensorid corresponding to the room to check for.
@@ -35,7 +39,7 @@ def _does_room_exist(rooms, sensorid):
 
 def _does_ws_exist(rooms, sensorid, ws):
     """Determines if a WebSocket exists in the given room or not.
-    
+
     Args:
         rooms (dict): A dictionary containing sensor rooms.
         sensorid (int): The sensorid corresponding to the room to check attendance for.
@@ -45,12 +49,12 @@ def _does_ws_exist(rooms, sensorid, ws):
         return False
     if ws not in rooms[sensorid]:
         return False
-    return True    
+    return True
 
 
 async def _leave(rooms, sensorid, ws):
     """Allows a WebSocket to leave a room
-    
+
     Args:
         rooms (dict): A dictionary contaiing sensor rooms.
         sensorid (int): The sensorid corresponding to the room to leave.
@@ -64,7 +68,7 @@ async def _leave(rooms, sensorid, ws):
 
 async def _join(rooms, sensorid, ws):
     """Allows a WebSocket to join a room.
-    
+
     Args:
         rooms (dict): A dictionary containing sensor rooms.
         sensorid (int): The sensorid corresponding to the room to join.
@@ -80,7 +84,7 @@ async def _join(rooms, sensorid, ws):
 
 async def _change_stream(rooms, sensorid, ws, rtype):
     """Changes the data stream the WebSocket receives.
-    
+
     Args:
         rooms (dict): A dictionary containing sensor rooms.
         sensorid (int): The sensorid corresponding to the room the WebSocket is in.
@@ -91,18 +95,18 @@ async def _change_stream(rooms, sensorid, ws, rtype):
     if not _does_ws_exist(rooms, sensorid, ws):
         return
     rooms[sensorid][ws] = int(rtype)
-    
-    
+
+
 async def message(rooms, sensorid, msg):
     """Sends a message to the participants of a room.
-    
+
     Args:
         rooms (dict): A dictionary containing the sensor rooms.
         sensorid (int): The sensorid corresponding to the room to message.
         msg (dict): The message to send to all room participants (usually a reading).
     """
     # only send the message if the room exists
-    if not _does_room_exist(rooms, sensorid):
+    if not _does_room_exist(rooms, sensorid, msg):
         return
     # add additional fields to the message
     # create the response object for the websocket
@@ -114,8 +118,11 @@ async def message(rooms, sensorid, msg):
         'val': msg['val'],
         'rstring': msg['rstring']
     }]
-    # get the rtype, so we only send to clients that ask for it specifically
-    rtypeid = msg['rtypeid']
+    try:
+        # get the rtype, so we only send to clients that ask for it specifically
+        rtypeid = msg['rtypeid']
+    except KeyError:
+        return
     # steps through all clients in the room
     for ws, rtype in rooms[sensorid].items():
         if rtype == rtypeid:
@@ -125,22 +132,30 @@ async def message(rooms, sensorid, msg):
 # Defines the handler for the info page WebSocket
 async def ws_handler(request):
     """Handles request for the servers websocket address.
-    
+
     Args:
         request (aiohttp.web.Request): The request that initiated the WebSocket connection.
     """
     sensorid = 0
-    
-    ws = aiohttp.web.WebSocketResponse(autoclose=False, heartbeat=3)
-    await ws.prepare(request)
+
+    ws = None
+    try:
+        ws = aiohttp.web.WebSocketResponse(autoclose=False, heartbeat=3)
+        await ws.prepare(request)
+    except aiohttp.web.WSServerHandshakeError:
+        raise aiohttp.web.HTTPFound(request.app.router['index'].url_for())
 
     # TODO: There needs to be guards in the casting here
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
             # decode the received message
             #   every value in js will be a string, cast as necessary
-            js = simplejson.loads(msg.data)
-            # make sure the cmd and sensorid fields are present, they are 
+            js = None
+            try:
+                js = simplejson.loads(msg.data)
+            except simplejson.JSONDecodeError:
+                continue
+            # make sure the cmd and sensorid fields are present, they are
             #   required for command execution
             if 'cmd' not in js or 'sensorid' not in js:
                 continue
@@ -149,7 +164,7 @@ async def ws_handler(request):
                 sensorid = int(js['sensorid'])
             except Exception:
                 continue
-            
+
             # adds the requesting websocket as a receiver for messages from
             #   the indicated sensor
             if cmd == 'RQST_JOIN':
@@ -176,18 +191,22 @@ async def ws_handler(request):
                 resp = dict()
                 resp['cmd'] = 'RESP_STREAM'
                 readings = []
-                async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
-                    reading['rstring'] = filter_reading(reading)
-                    readings.append(reading)
+                try:
+                    async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
+                        reading['rstring'] = filter_reading(reading)
+                        readings.append(reading)
+                except DBError:
+                    print('ERROR: Cannot get readings for sensor, there was an issue with the database!')
+                    continue
                 resp['readings'] = readings
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
             # handle requests for getting stats on sensors
             elif cmd == 'RQST_SENSOR_STATS':
                 # perform verification checks
-                if ('groupid' not in js or 
-                        'rtypeid' not in js or 
-                        'start_date' not in js or 
+                if ('groupid' not in js or
+                        'rtypeid' not in js or
+                        'start_date' not in js or
                         'end_date' not in js):
                     continue
                 # get request info
@@ -201,22 +220,26 @@ async def ws_handler(request):
                 # get stats info from the database
                 resp = dict()
                 resp['cmd'] = 'RESP_SENSOR_STATS'
-                resp['stats'] = await request.app['db'].stats_sensor(sensorid, 
-                    groupid, rtypeid, start_date, end_date)
+                try:
+                    resp['stats'] = await request.app['db'].stats_sensor(sensorid,
+                        groupid, rtypeid, start_date, end_date)
+                except DBError:
+                    print('ERROR: Cannot generate stats, there was an issue with the database!')
+                    continue
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:
             ws.send_str('WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception()))
-    
+
     await _leave(request.app['rooms'], sensorid, ws)
 
     return ws
-    
-    
+
+
 async def socket_shutdown_handler(app):
-    """Defines a handler for shutting down any connected WebSockets when the 
+    """Defines a handler for shutting down any connected WebSockets when the
     server goes down.
-    
+
     Args:
         app (aiohttp.web.Application): The web application hosting the sensor rooms.
     """

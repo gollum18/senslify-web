@@ -18,7 +18,7 @@ import simplejson
 
 from datetime import datetime
 
-from senslify.errors import traceback_str
+from senslify.errors import generate_error, traceback_str
 from senslify.filters import filter_reading
 from senslify.sockets import message
 from senslify.verify import verify_reading
@@ -27,119 +27,120 @@ from senslify.verify import verify_reading
 @aiohttp_jinja2.template('sensors/info.jinja2')
 async def info_handler(request):
     """Defines a POST endpoint for the sensor info page.
-    
-    Keyword arguments:
-    request -- A aiohttp.web.Request object.
+
+    Arguments:
+        request (aiohttp.web.Request): An aiohttp.web.Request object.
+
+    Returns:
+        (aiohttp.web.Response): An aiohttp.web.Response object.
     """
     # redirect to the sensors page if no sensor was provided
     if 'sensorid' not in request.query or 'groupid' not in request.query:
-        location = request.app.router['sensors'].url_for()
-        raise aiohttp.web.HTTPFound(location=location)
-    status = 200
-    
+        raise aiohttp.web.HTTPFound(location=request.app.router['sensors'].url_for())
+
     # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
-    sensorid = int(request.query['sensorid'])
-    groupid = int(request.query['groupid'])
-    rtypeid = int(request.app['config'].default_rtypeid)
+    sensorid = 0
+    groupid = 0
+    rtypeid = 0
+    try:
+        sensorid = int(request.query['sensorid'])
+        groupid = int(request.query['groupid'])
+        rtypeid = int(request.app['config'].default_rtypeid)
+    except Exception as e:
+        if request.app['config'].debug:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error('ERROR: Malformed request!', 403)
     host = request.host
     route = '/ws'
     ws_url = prefix + host + route
-    
+
     # build the sensor readings query
+    # TODO: There has to be a way where I don't have to save these to memory
     rtypes = []
     num_readings = int(request.app['config'].num_readings)
     try:
         async for rtype in request.app['db'].get_rtypes():
             rtypes.append(rtype)
     except Exception as e:
-        status = 403
         if request.app['config'].debug:
-            text = 'HTTP RESPONSE 403:\n\n{}'.format(traceback_str(e))
+            return generate_error(traceback_str(e), 403)
         else:
-            text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
-    
+            return generate_error('ERROR: An error has occurred with the database!', 403)
+
     # get the time span
     end = datetime.timestamp(datetime.now())
     start = datetime.timestamp(datetime.today().replace(day=1))
-    
-    if status != 200:
-        return aiohttp.web.Response(status=status, text=text)
-    else:
-        # build the response thru jinja2
-        return {
-            'title': 'Sensor Info',
-            'sensorid': sensorid,
-            'groupid': groupid,
-            'rtypeid': rtypeid,
-            'rtypes': rtypes,
-            'num_readings': num_readings,
-            'ws_url': ws_url,
-            'start_date': start,
-            'end_date': end
-        }
+
+    # build the response thru jinja2
+    return {
+        'title': 'Sensor Info',
+        'sensorid': sensorid,
+        'groupid': groupid,
+        'rtypeid': rtypeid,
+        'rtypes': rtypes,
+        'num_readings': num_readings,
+        'ws_url': ws_url,
+        'start_date': start,
+        'end_date': end
+    }
 
 
 def build_info_url(request, sensor):
     """Helper function that creates a url for a given sensor.
-    
+
     This function is called primarily by the sensors_handler function to
     generate links to the sensor info page.
-    
+
     Keyword arguments:
     request -- The request that wants the sensor url.
     sensor -- The sensor to generate a url for.
     """
     route = request.app.router['info'].url_for().with_query(
         {
-            'sensorid': sensor['sensorid'], 
+            'sensorid': sensor['sensorid'],
             'groupid': sensor['groupid']
         }
     )
     return route
-    
+
 
 @aiohttp_jinja2.template('sensors/sensors.jinja2')
 async def sensors_handler(request):
     """Defines a GET endpoint for the sensors listing page.
-    
+
     Keyword arguments:
     request -- A aiohttp.web.Request object.
     """
     # redirect to the index page if no group was provided
     if 'groupid' not in request.query:
-        location = request.app.router['index'].url_for()
-        raise aiohttp.web.HTTPFound(location=location)
-    # construct the response and return it
-    group = int(request.query['groupid'])
-    status = 200
+        raise aiohttp.web.HTTPFound(location=request.app.router['index'].url_for())
+    # TODO: There has to be a way where I don't have to save these to memory
     sensors = []
     try:
+        group = int(request.query['groupid'])
         async for sensor in request.app['db'].get_sensors(group):
             sensor['url'] = build_info_url(request, sensor)
             sensors.append(sensor)
     except Exception as e:
         if request.app['config'].debug:
-            text = traceback_str(e)
+            return generate_error(traceback_str(e), 403)
         else:
-            text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
-    if status != 200:
-        return aiohttp.web.Response(text=text, status=status)
-    else:
-        return {
-            'title': 'Sensors', 
-            'sensors': sensors
-        }
+            return generate_error('ERROR: An error has occurred with the database!', 403)
+    # return the response through jinja2
+    return {
+        'title': 'Sensors',
+        'sensors': sensors
+    }
 
 
 async def upload_handler(request):
     """Defines a POST endpoint for uploading sensor data.
-    
+
     Keyword arguments:
     request -- A aiohttp.web.Request object.
     """
-    status = 200
-    text = 'Request processed successfully!'
     doc = simplejson.loads(request.query['msg'])
     # TODO: Perform verification on the data passed to the handler
     if doc['sensorid'] is None:
@@ -156,9 +157,8 @@ async def upload_handler(request):
                 # send the message to the room
                 await message(request.app['rooms'], doc['sensorid'], doc)
         except Exception as e:
-            status = 403
             if request.app['config'].debug:
-                text = traceback_str(e)
+                return generate_error(traceback_str(e), 403)
             else:
-                text = 'HTTP RESPONSE 403:\n\nAn error has occurred with the database!'
-    return aiohttp.web.Response(text=text, status=status)
+                return generate_error('ERROR: An error has occurred with the database!', 403)
+    return aiohttp.web.Response(text='OK', status=200)
