@@ -16,26 +16,30 @@
 import aiohttp, os, traceback, sys
 
 
-def generate_rest_error(reason):
-    """Generates errors for the '/rest' handler.
-    
+class DBError(Exception):
+    pass
+
+
+def generate_error(text, status):
+    """Generates generic errors for clients.
+
     Arguments:
-        reason (str): The reason the error occurred.
+        text (str): Informative flavor text.
+        status (int): The HTTP response code.
+
     Returns:
-        (aio.http.Response): A Rseponse object.
+        (aiohttp.web.Response): An aiohttp.web.Response object.
     """
-    status = 400
-    text = "HTTP 400 ERROR: Command not understood or invalid target/parameters sent!"
-    text += "\nReason: {}".format(reason)
-    return aiohttp.web.Response(status=status, text=text)
-  
+    text = "HTTP Error {c}: \n\n{t}".format(t=text, c=status)
+    return aiohttp.web.Response(text=response, status=status)
+
 
 def traceback_str(exception):
     """Generates a formatted traceback string for developer output.
-    
+
     Arguments:
         exception (Exception): The exception that triggered the traceback.
-        
+
     Returns:
         (str): A formatted traceback string.
     """
