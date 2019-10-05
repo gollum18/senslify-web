@@ -30,8 +30,8 @@ def generate_error(text, status):
     Returns:
         (aiohttp.web.Response): An aiohttp.web.Response object.
     """
-    text = "HTTP Error {c}: \n\n{t}".format(t=text, c=status)
-    return aiohttp.web.Response(text=response, status=status)
+    resp = "HTTP Error {c}: \n\n{t}".format(t=text, c=status)
+    return aiohttp.web.Response(text=resp, status=status)
 
 
 def traceback_str(exception):
