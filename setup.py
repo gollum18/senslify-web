@@ -35,13 +35,14 @@ VERSION = '0.1.0'
 REQUIRED = [
     "aiohttp", "jinja2", "aiohttp-jinja2", "cchardet",
     "config", "aiodns", "pymongo", "simplejson",
-    "markupsafe", "gevent", "sphinx"
+    "markupsafe", "gevent",
 ]
 
 # What packages are optional?
 EXTRAS = {
     # 'fancy feature': ['django'],
     'btlemon': ['click', 'click_shell', 'bluepy'],
+    'docs': ['sphinx'],
     'xls2tsv': ['click', 'defusedxml', 'openpyxl', 'openpyxl-utilities'],
 }
 
@@ -148,4 +149,3 @@ setup(
         'upload': UploadCommand,
     },
 )
-
