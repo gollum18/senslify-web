@@ -286,8 +286,12 @@ class MongoProvider(DatabaseProvider):
         """
         DatabaseProvider.__init__(self, conn_str, db)
         # Name mangling is ok, but these should really be stored in encrypted memory
-        self.__username = str(username)
-        self.__password = str(password)
+        if username is str and password is str:
+            self.__username = str(username)
+            self.__password = str(password)
+        else:
+            self.__username = None
+            self.__password = None
 
 
     @staticmethod
@@ -329,7 +333,6 @@ class MongoProvider(DatabaseProvider):
         if not self._open:
             print('Cannot initialize database, connection not open!')
             return
-        print('Initializing database...')
         try:
             if self._db in self._conn.list_database_names():
                 if input('Senslify Database detected, do you want to delete it? [y|n]: ').lower() == 'y':
@@ -622,7 +625,7 @@ class MongoProvider(DatabaseProvider):
         """Opens a connection to the backing database server."""
         if not self._open:
             try:
-                if self.__username and self.__password:
+                if self.__username is not None and self.__password is not None:
                     self._conn = pymongo.MongoClient(
                         self._conn_str,
                         username=self.__username,

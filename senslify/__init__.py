@@ -27,7 +27,7 @@ import config, simplejson
 # change the Provider import here if you want to use different one
 #   You'll need to change it below too where I have marked
 from senslify.db import database_shutdown_handler, MongoProvider
-from senslify.errors import DBError
+from senslify.errors import DBError, traceback_str
 
 # import the various route handlers
 from senslify.index import index_handler
@@ -111,8 +111,11 @@ def build_app(config_file=
         password = None
         app['db'].open()
         app['db'].init()
-    except DBError:
-        print('ERROR: Unable to connect to the MongoDB instance, cannot continue!')
+    except DBError as e:
+        if app['config'].debug:
+            print(traceback_str(e))
+        else:
+            print('ERROR: Unable to connect to the MongoDB instance, cannot continue!')
         sys.exit(-1)
 
     # setup the ws rooms

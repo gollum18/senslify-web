@@ -107,7 +107,7 @@ def main(infile, outfile, worksheet, verbose):
                 # write the outfile
                 write_outfile(ws_handle, outfile)
             else:
-                for ws_name in wb.keys():
+                for ws_name in wb_handle.sheetnames:
                     # get a handle to the current sheet, build its outfile name
                     ws_handle = wb_handle[ws_name]
                     outfile = get_outfile(infile, ws_name)
