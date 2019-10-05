@@ -20,13 +20,14 @@
 from gevent import monkey
 monkey.patch_all()
 
-import asyncio, os, sys
+import asyncio, getpass, os, sys
 import aiohttp, aiohttp_jinja2, jinja2
 import config, simplejson
 
 # change the Provider import here if you want to use different one
 #   You'll need to change it below too where I have marked
 from senslify.db import database_shutdown_handler, MongoProvider
+from senslify.errors import DBError
 
 # import the various route handlers
 from senslify.index import index_handler
@@ -40,9 +41,9 @@ import senslify.filters
 
 def get_local_ip():
     """Gets the local IP address of the host running the server."""
-    
+
     import socket
-    
+
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # doesn't even have to be reachable
@@ -61,18 +62,18 @@ def build_app(config_file=
             os.path.realpath(__file__)), 'senslify.conf')):
     """ Factory function that creates a new instance of the server with
     the given configuration.
-    
+
     Args:
     config_file (str): The path to the configuration file to use with the
     server (default ./senslify.conf)
     """
-    
     # create the application and setup the file loader
+    print('Configuring jinja2 template engine...')
     app = aiohttp.web.Application()
     loader=jinja2.FileSystemLoader(
         [os.path.join(os.path.dirname(__file__), "templates")]
     )
-    
+
     # setup any filters for the application to use
     filters = {
         "date": senslify.filters.filter_date, # YYYY-MM-DD date format
@@ -80,22 +81,40 @@ def build_app(config_file=
         "simplejson_dumps": simplejson.dumps,
         "rstring": senslify.filters.filter_reading # custom reading filter
     }
-    
+
+    # setup the root url for static content like js/css
+    app['static_root_url'] = '/static'
+
     # setup the application
     aiohttp_jinja2.setup(app, loader=loader, filters=filters)
 
     # setup the application configuration and any global variables
+    print('Loading config file...')
     app['config'] = config.Config(config_file)
 
-    # setup the root url for static content like js/css
-    app['static_root_url'] = '/static'
-    
     # setup the database connection
-    #   change the provider here if you want to use a different provider
-    app['db'] = MongoProvider(conn_str=app['config'].conn_str)
-    app['db'].open()
-    app['db'].init()
-    
+    print('Initializing database connection...')
+    # change the provider here if you want to use a different provider
+    try:
+        username = None
+        password = None
+        auth_required = input('Do we require a username and password to connect to the database server? [y|n]: ').lower()
+        if auth_required == 'y':
+            username = input('Username: ')
+            password = getpass.getpass()
+        app['db'] = MongoProvider(
+            conn_str=app['config'].conn_str,
+            username=username,
+            password=password
+        )
+        username = None
+        password = None
+        app['db'].open()
+        app['db'].init()
+    except DBError:
+        print('ERROR: Unable to connect to the MongoDB instance, cannot continue!')
+        sys.exit(-1)
+
     # setup the ws rooms
     app['rooms'] = dict()
 
@@ -113,7 +132,7 @@ def build_app(config_file=
     app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
     app.router.add_route('GET', '/rest', rest_handler)
-    
+
     # register any shutdown handlers
     app.on_shutdown.append(database_shutdown_handler)
     app.on_shutdown.append(socket_shutdown_handler)
@@ -126,7 +145,7 @@ def main():
     """Entry point for the server. You may optionally supply a path to
     a configuration file to use with the server.
     """
-    
+
     # get the app
     if len(sys.argv) == 2:
         app = build_app(config_file=sys.argv[2])
