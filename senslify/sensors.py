@@ -58,33 +58,35 @@ async def info_handler(request):
 
     # build the sensor readings query
     # TODO: There has to be a way where I don't have to save these to memory
-    rtypes = []
-    num_readings = int(request.app['config'].num_readings)
+    rtypes = None
     try:
-        async for rtype in request.app['db'].get_rtypes():
-            rtypes.append(rtype)
+        rtypes = await request.app['db'].get_rtypes()
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error('ERROR: An error has occurred with the database!', 403)
+    num_readings = int(request.app['config'].num_readings)
 
     # get the time span
     end = datetime.timestamp(datetime.now())
     start = datetime.timestamp(datetime.today().replace(day=1))
 
     # build the response thru jinja2
-    return {
-        'title': 'Sensor Info',
-        'sensorid': sensorid,
-        'groupid': groupid,
-        'rtypeid': rtypeid,
-        'rtypes': rtypes,
-        'num_readings': num_readings,
-        'ws_url': ws_url,
-        'start_date': start,
-        'end_date': end
-    }
+    if not rtypes:
+        return generate_error("ERROR: No rtypes found in the database!", 403)
+    else:
+        return {
+            'title': 'Sensor Info',
+            'sensorid': sensorid,
+            'groupid': groupid,
+            'rtypeid': rtypeid,
+            'rtypes': rtypes,
+            'num_readings': num_readings,
+            'ws_url': ws_url,
+            'start_date': start,
+            'end_date': end
+        }
 
 
 def build_info_url(request, sensor):
@@ -116,23 +118,24 @@ async def sensors_handler(request):
     # redirect to the index page if no group was provided
     if 'groupid' not in request.query:
         raise aiohttp.web.HTTPFound(location=request.app.router['index'].url_for())
-    # TODO: There has to be a way where I don't have to save these to memory
-    sensors = []
+    group = -1
+    sensors = None
     try:
         group = int(request.query['groupid'])
-        async for sensor in request.app['db'].get_sensors(group):
-            sensor['url'] = build_info_url(request, sensor)
-            sensors.append(sensor)
+        sensors = await request.app['db'].get_sensors(group)
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error('ERROR: An error has occurred with the database!', 403)
     # return the response through jinja2
-    return {
-        'title': 'Sensors',
-        'sensors': sensors
-    }
+    if not sensors:
+        return generate_error("ERROR: No sensors found for given group!", 403)
+    else:
+        return {
+            'title': 'Sensors for group {g}:'.format(g=group),
+            'sensors': sensors
+        }
 
 
 async def upload_handler(request):

@@ -46,6 +46,11 @@ EXTRAS = {
     'xls2tsv': ['click', 'defusedxml', 'openpyxl', 'openpyxl-utilities'],
 }
 
+# Are there any additonal data files needed by the project
+DATA_FILES = [
+    ('', ['senslify/config/senslify.conf']),
+]
+
 # The rest you shouldn't have to touch too much :)
 # ------------------------------------------------
 # Except, perhaps the License and Trove Classifiers!
@@ -122,7 +127,6 @@ setup(
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
-
     entry_points={
         'console_scripts': [
             'btlemon=senslify.tools.btlemon:main',
@@ -148,4 +152,6 @@ setup(
     cmdclass={
         'upload': UploadCommand,
     },
+    # setup additional data files
+    data_files=DATA_FILES,
 )

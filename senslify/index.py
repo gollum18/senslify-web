@@ -53,6 +53,7 @@ async def index_handler(request):
     Returns:
         (aiohttp.web.Response): An aiohttp.web.Response object.
     """
+    # can't pass the generator off for now, need to refactor this so we can
     groups = []
     try:
         # get the group information from the database
@@ -64,7 +65,10 @@ async def index_handler(request):
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error('ERROR: Internal server error occurred!', 403)
-    return {
-        'title': 'Home',
-        'groups': groups
-    }
+    if not groups:
+        return generate_error('ERROR: No groups found in the database!', 403)
+    else:
+        return {
+            'title': 'Home',
+            'groups': groups
+        }
