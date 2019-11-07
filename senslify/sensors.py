@@ -13,7 +13,7 @@
 # Author: Christen Ford
 # Description: Handles routes intended for the /sensors base route.
 
-import aiohttp, aiohttp_jinja2
+import aiohttp, aiohttp_jinja2, asyncio
 import simplejson
 
 from datetime import datetime
@@ -60,7 +60,8 @@ async def info_handler(request):
     # TODO: There has to be a way where I don't have to save these to memory
     rtypes = None
     try:
-        rtypes = await request.app['db'].get_rtypes()
+        loop = 
+        rtypes = [i async for i in request.app['db'].get_rtypes()]
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
@@ -119,10 +120,12 @@ async def sensors_handler(request):
     if 'groupid' not in request.query:
         raise aiohttp.web.HTTPFound(location=request.app.router['index'].url_for())
     group = -1
-    sensors = None
+    sensors = []
     try:
         group = int(request.query['groupid'])
-        sensors = await request.app['db'].get_sensors(group)
+        async for sensor in request.app['db'].get_sensors(group):
+            sensor['url'] = build_info_url(request, sensor)
+            sensors.append(sensor)
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
