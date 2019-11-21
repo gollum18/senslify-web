@@ -274,7 +274,7 @@
             reloadChart();
             
             // reload the list
-            reloadList(resp.readings)
+            reloadList(resp.readings);
         }
         
         /**
@@ -431,8 +431,8 @@
             }
             
             // convert the start and end dates over to moment
-            start_date = moment(start_date).format('X')
-            end_date = moment(end_date).format('X')
+            start_date = moment(start_date).format('X');
+            end_date = moment(end_date).format('X');
             
             // construct the message for the server
             let msg = {
@@ -448,7 +448,7 @@
             ws.send(JSON.stringify(msg));
             
             // reset the number of readings
-            readingsSoFar = 0
+            readingsSoFar = 0;
         }
         
         /**

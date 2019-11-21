@@ -143,22 +143,18 @@ async def upload_handler(request):
     """
     doc = simplejson.loads(request.query['msg'])
     # TODO: Perform verification on the data passed to the handler
-    if doc['sensorid'] is None:
-        status = 400
-        text = 'You must supply a sensor ID in your message.'
-    if status == 200:
-        try:
-            # Only insert if reading verifies as true
-            if verify_reading(doc):
-                # insert the reading into the database
-                await request.app['db'].insert_reading(doc)
-                # generate the string version of the message for output on page
-                doc['rstring'] = filter_reading(doc)
-                # send the message to the room
-                await message(request.app['rooms'], doc['sensorid'], doc)
-        except Exception as e:
-            if request.app['config'].debug:
-                return generate_error(traceback_str(e), 403)
-            else:
-                return generate_error('ERROR: An error has occurred with the database!', 403)
+    try:
+        # Only insert if reading verifies as true
+        if verify_reading(doc):
+            # insert the reading into the database
+            await request.app['db'].insert_reading(doc)
+            # generate the string version of the message for output on page
+            doc['rstring'] = filter_reading(doc)
+            # send the message to the room
+            await message(request.app['rooms'], doc['sensorid'], doc)
+    except Exception as e:
+        if request.app['config'].debug:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error('ERROR: An error has occurred with the database!', 403)
     return aiohttp.web.Response(text='OK', status=200)

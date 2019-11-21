@@ -106,7 +106,8 @@ async def message(rooms, sensorid, msg):
         msg (dict): The message to send to all room participants (usually a reading).
     """
     # only send the message if the room exists
-    if not _does_room_exist(rooms, sensorid, msg):
+    if not _does_room_exist(rooms, sensorid):
+        print('ERROR: Room {} does not exist, unable to send message!'.format(sensorid))
         return
     # add additional fields to the message
     # create the response object for the websocket
@@ -121,7 +122,9 @@ async def message(rooms, sensorid, msg):
     try:
         # get the rtype, so we only send to clients that ask for it specifically
         rtypeid = msg['rtypeid']
+        print(rtypeid)
     except KeyError:
+        print("ERROR: KeyError has occurred sending message, 'rtypeid' not found!")
         return
     # steps through all clients in the room
     for ws, rtype in rooms[sensorid].items():
