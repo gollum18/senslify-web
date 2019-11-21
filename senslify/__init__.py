@@ -56,10 +56,7 @@ def get_local_ip():
     return IP
 
 
-def build_app(config_file=
-    os.path.join(
-        os.path.dirname(
-            os.path.realpath(__file__)), 'senslify.conf')):
+def build_app(config_file='./senslify/config/senslify.conf'):
     """ Factory function that creates a new instance of the server with
     the given configuration.
 

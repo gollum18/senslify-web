@@ -271,7 +271,7 @@ class MongoProvider(DatabaseProvider):
     #   to running on the server
     MAX_AGGREGATE_MS = 2500
 
-    def __init__(self, conn_str='mongodb://0.0.0.0:27001', db='senslify',
+    def __init__(self, conn_str='mongodb://127.0.0.1:27001', db='senslify',
             username=None, password=None):
         """Returns an object capable of interacting with the Senslify MongoDB
         database. You must manually open the connection by calling open()
@@ -279,7 +279,7 @@ class MongoProvider(DatabaseProvider):
 
         Args:
             conn_str (str): The connection string to the MongoDB server
-            (default mongodb://0.0.0.0:27001)
+            (default mongodb://127.0.0.1:27001)
             db (str): The name of the Senslify database (default senslify)
             username (str): The username to connect to the database with (default=None).
             password (str): The password corresponding to the username (default=None).
@@ -373,7 +373,8 @@ class MongoProvider(DatabaseProvider):
                 {"rtypeid": 3, "rtype": "Infrared Light"},
                 {"rtypeid": 4, "rtype": "Voltage"}
             ])
-        except pymongo.errors.PyMongoError:
+        except pymongo.errors.PyMongoError as e:
+            print(e)
             raise DBError()
         except Exception:
             raise DBError()

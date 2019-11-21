@@ -17,7 +17,7 @@ import babel.dates
 import datetime
     
 
-def filter_date(d):
+def filter_date(d, locale='en'):
     """Filters a Unix timestamp into a YYYY-MM-DD format suitable for 
     HTML date input controls.
     
@@ -28,10 +28,10 @@ def filter_date(d):
         (str): Date string in the form YYYY-MM-DD.
     """
     d = datetime.datetime.fromtimestamp(d).date()
-    return babel.dates.format_date(d, 'YYYY-MM-dd')
+    return babel.dates.format_date(d, 'YYYY-MM-dd', locale=locale)
 
 
-def filter_datetime(dt, fmt='medium'):
+def filter_datetime(dt, fmt='medium', locale='en'):
     """'i18n' compliant datetime filter for jinja2.
     Taken from: https://stackoverflow.com/questions/4830535/how-do-i-format-a-date-in-jinja2
     
@@ -46,7 +46,7 @@ def filter_datetime(dt, fmt='medium'):
     # return medium dateformat by default
     else:
         fmt = "EE dd.MM.y HH:mm:ss"
-    return babel.dates.format_datetime(dt, fmt)
+    return babel.dates.format_datetime(dt, fmt, locale=locale)
     
 
 def filter_reading(reading):
