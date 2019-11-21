@@ -60,7 +60,6 @@ async def info_handler(request):
     # TODO: There has to be a way where I don't have to save these to memory
     rtypes = None
     try:
-        loop = 
         rtypes = [i async for i in request.app['db'].get_rtypes()]
     except Exception as e:
         if request.app['config'].debug:

@@ -203,7 +203,7 @@
                 if (readingsSoFar === 1) {
                     tdAvg.text(value.toFixed(4));
                 } else {
-                    let oldMu = parseFloat(tdAvg().text());
+                    let oldMu = parseFloat(tdAvg.text());
                     let newMu = oldMu + ((value - oldMu) / readingsSoFar);
                     tdAvg.text(newMu.toFixed(4));
                 }
