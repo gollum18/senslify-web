@@ -156,6 +156,9 @@ async def ws_handler(request):
                 js = simplejson.loads(msg.data)
             except simplejson.JSONDecodeError:
                 continue
+            if not js:
+                continue
+            
             # make sure the cmd and sensorid fields are present, they are
             #   required for command execution
             if 'cmd' not in js or 'sensorid' not in js:

@@ -226,7 +226,14 @@
                     .text(resp.readings[0].rstring)
                     .prependTo($("#list_readings"));
                     
-            // add the reading to the chart
+            // remove the last element from the chart if we are at the limit
+            //  this should fix the memory-expansion bug in browsers
+            if (rtChart.data.datasets[0].data.length === rlim) {
+                // perform reverse of push() operation
+                rtChart.data.datasets[0].data.shift();
+            }
+                    
+            // add the new reading to the chart
             rtChart.data.datasets[0].data.push({
                 x: moment.unix(resp.readings[0].ts).utc(),
                 y: resp.readings[0].val

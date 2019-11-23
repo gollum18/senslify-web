@@ -16,7 +16,7 @@
 #   as well as a MongoProvider class that implements it. If you want to switch
 #   to a different database provider, you should inherit from the
 #   DatabaseProvider class and implement its methods. The DatabaseProvider
-#   class does not define a __init__ method. Many of the methods in defined
+#   class does not define a __init__ method. Many of the methods defined
 #   by the DatabaseProvider class are asynchronous. As such, you will need
 #   to utilize an async compatible database connector when inheriting
 #   from the class.
