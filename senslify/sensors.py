@@ -146,7 +146,7 @@ async def upload_handler(request):
     Keyword arguments:
     request -- A aiohttp.web.Request object.
     """
-    doc = simplejson.loads(request.query['msg'])
+    doc = simplejson.loads(await request.text())
     # TODO: Perform verification on the data passed to the handler
     try:
         # Only insert if reading verifies as true
