@@ -2,6 +2,10 @@
 Welcome to Senslify. Senslify is a web visualization tool for dislaying archived and live sensor data in real-time. Senslify makes extensive use of asynchronous programming as well as modern advancements in web streaming to provide a modern approach to sensor visualization.
 
 
+## Update
+This project has been archived. Aside from critical security or maintenance updates, I will no longer be updating it. I have made the decision to rebase this software to a RESTful model that does not utilize WebSockets. This will substantially improve the client and server implementations and should allow for moving away from the asynchronous model. Since Senslify has always been a simple service at it's core, there is little incentive to have the server remain asynchrounous as all it does is increase complexity with little to be gained in terms of server response times.
+
+
 ## A Note on Security
 The database for Senslify is intentionally unsecured as Senslify is a front-end
 for a research project. If and when I decide to release Senslify in the wild,
