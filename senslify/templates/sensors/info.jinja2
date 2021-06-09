@@ -131,7 +131,7 @@
         //
         
         function teardown() {
-            let msg = {'cmd': 'RQST_CLOSE', 'sensorid': sensorid};
+            let msg = {'cmd': 'RQST_CLOSE', 'groupid': groupid, 'sensorid': sensorid};
             ws.send(JSON.stringify(msg));
             ws.close();
         }
@@ -160,7 +160,7 @@
          * indicated by sensorid.
          */
         function joinHandler() {
-            let rqst = {'cmd': 'RQST_JOIN', 'sensorid': sensorid};
+            let rqst = {'cmd': 'RQST_JOIN', 'groupid': groupid, 'sensorid': sensorid};
             ws.send(JSON.stringify(rqst));
         }
         
