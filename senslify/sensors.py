@@ -156,7 +156,7 @@ async def upload_handler(request):
             # generate the string version of the message for output on page
             doc['rstring'] = filter_reading(doc)
             # send the message to the room
-            await message(request.app['rooms'], doc['sensorid'], doc)
+            await message(request.app['rooms'], doc['groupid'], doc['sensorid'], doc)
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
