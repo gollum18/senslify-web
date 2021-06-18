@@ -78,7 +78,7 @@ async def info_handler(request):
         return generate_error("ERROR: No rtypes found in the database!", 403)
     else:
         return {
-            'title': 'Sensor Info for Sensor ' + sensorid,
+            'title': f'Sensor Info for Sensor {sensorid}',
             'sensorid': sensorid,
             'groupid': groupid,
             'rtypeid': rtypeid,

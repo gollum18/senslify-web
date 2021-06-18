@@ -185,8 +185,8 @@ async def ws_handler(request):
             if cmd == 'RQST_JOIN':
                 result = await _join(request.app['rooms'], groupid, sensorid, ws)
                 resp = dict()
-                resp['cmd'] = 'RESP_JOIN':
-                rest['join_status'] = result
+                resp['cmd'] = 'RESP_JOIN'
+                resp['join_status'] = result
                 await ws.send_str(simplejson.dumps(resp))
             # close the connection if the client requested it
             elif cmd == 'RQST_CLOSE':
