@@ -6,6 +6,8 @@
     <script src="https://cdn.jsdelivr.net/combine/npm/moment@2,npm/chart.js@2"></script>
     <!-- ChartJS Realtime Extension -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@1.8.0/dist/chartjs-plugin-streaming.min.js"></script>
+    <!-- DownloadJS Extension -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
 {% endblock %}
 
 {% block header %}
@@ -15,10 +17,10 @@
 {% block content %}
     <!-- This section defines the stats display for real-time stats. -->
     <section class="container-fluid">
-        <div id="row">
-            <h3>Real-time stats for Sensor: {{ sensorid }}:</h3>
+        <div class="row">
+            <h3>Real-time stats for Sensor: {{ sensorid }}</h3>
         </div>
-        <div id="row">
+        <div class="row">
             <table class="table">
                 <tr>
                     <th scope="col">Average</th>
@@ -32,10 +34,19 @@
                 </tr>
             </table>
         </div>
-        <div id="row">
-            <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#statsModal">
-              View Historical Stats
-            </button>
+        <div class=container-fluid>
+            <div class="row">
+                <div class="col-xs-6 pr-3 text-left">
+                    <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#statsModal">
+                    View Historical Stats
+                    </button>
+                </div>
+                <div class="col-xs-6 pl-3 text-right">
+                    <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#downloadModal">
+                    Download Sensor Readings
+                    </button>
+                </div>
+            </div>
         </div>
     </section>
     <!-- This section defines the live chart. -->
@@ -90,13 +101,36 @@
             </table>
           </div>
           <div class="modal-footer">
-            <label for="start_date_picker">Start Date:</label>
-            <input id="start_date_picker" type="date" value="{{ start_date|date }}">
-            <label for="end_date_picker">End Date:</label>
-            <input id="end_date_picker" type="date" value="{{ end_date|date }}">
+            <label for="st_start_date_picker">Start Date:</label>
+            <input id="st_start_date_picker" type="date" value="{{ start_date|date }}" required>
+            <label for="st_end_date_picker">End Date:</label>
+            <input id="st_end_date_picker" type="date" value="{{ end_date|date }}" required>
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
             <input type="button" class="btn btn-primary" value="Get Stats" onclick="onStatsRequested();">
            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- This defines the modal for downloading readings over a time period -->
+    <div class="modal fade bd-example-modal-lg" id="downloadModal" tabindex="-1" role="dialog"  aria-labelledby="On-Demand Download" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="download_header">Download:</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <label for="dl_start_date_picker">Start Date:</label>
+            <input id="dl_start_date_picker" type="date" value="{{ start_date|date }}" required>
+            <label for="dl_end_date_picker">End Date:</label>
+            <input id="dl_end_date_picker" type="date" value="{{ end_date|date }}" required>
+            <label for="dl_filename">Filename:</label>
+            <input id="dl_filename" type="text" value="{{ end_date }}.json" required>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <input type="button" class="btn btn-primary" value="Download" onclick="onDownloadRequested();">
           </div>
         </div>
       </div>
@@ -121,7 +155,7 @@
         //  the websocket is constant as it persists for the life of the page
         const ws = new WebSocket('{{ ws_url }}');
         // the max number of join attempts
-        const max_join_attempts = {{ max_join_attempts }}
+        const max_join_attempts = {{ max_join_attempts }};
         // stores the number of readings seen so far
         var readingsSoFar = 0;
         // stores a reference to the chart object for graphically displaying 
@@ -266,6 +300,12 @@
                 preservation: true
             });
         }
+
+        function downloadHandler(resp) {
+            let filename = $("#dl_filename").val();
+            let blob = new Blob([JSON.stringify(resp.data)], {type: "application/json"});
+            download(blob, filename, "application/json");
+        }
         
         /**
          * Client side WS handler that handles received messages (stas) from
@@ -350,6 +390,10 @@
             // handles whole datasets
             else if (resp.cmd === "RESP_STREAM") {
                 streamHandler(resp);
+            }
+            // handles downloading of datasets
+            else if (resp.cmd === 'RESP_DOWNLOAD') {
+                downloadHandler(resp);
             }
             // handles stats for datasets
             else if (resp.cmd === "RESP_SENSOR_STATS") {
@@ -447,14 +491,42 @@
                 
             console.log($("#list_readings").first());
         }
+
+        function onDownloadRequested() {
+            let start_date = $("#dl_start_date_picker").val();
+            let end_date = $("#dl_end_date_picker").val();
+
+            // verify the start date is less than the end date
+            if (start_date >= end_date) {
+                return;
+            }
+
+            // convert the start and end dates over to moment
+            start_date = moment(start_date).format('X');
+            end_date = moment(end_date).format('X');
+
+            // construct the message for the server
+            let msg = {
+                'cmd': 'RQST_DOWNLOAD',
+                'sensorid': sensorid,
+                'groupid': groupid,
+                'start_date': start_date,
+                'end_date': end_date
+            };
+
+            console.log(msg);
+            
+            // send the message to the server
+            ws.send(JSON.stringify(msg));
+        }
         
         /**
          * Handles onclick events for the stats readout.
          */
         function onStatsRequested() {
             let rtypeid = $("#sel_rtype option:selected").val();
-            let start_date = $("#start_date_picker").val();
-            let end_date = $("#end_date_picker").val();
+            let start_date = $("#st_start_date_picker").val();
+            let end_date = $("#st_end_date_picker").val();
             
             // TODO: verify that the dates or rtype actually changed
             

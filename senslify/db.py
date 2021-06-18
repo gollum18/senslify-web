@@ -256,6 +256,19 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
+    async def get_readings_by_period(self, sensorid, groupid, start_date, end_date):
+        """Returns all of the readings for a given time period for a given
+        sensor.
+
+        Args:
+            sensorid (int): The id of the sensor to get readings for.
+            groupid (int): The id of the group the sensor belongs to.
+            start_date (datetime.datetime): The start time period.
+            end_date (datetime.datetime): The end time period.
+        """
+        raise NotImplementedError
+
+
 class MongoProvider(DatabaseProvider):
     """Represents a unique connection to a MongoDB instance. Each instance of
     this class represents an individual connection to the MongoDB database.
@@ -374,7 +387,6 @@ class MongoProvider(DatabaseProvider):
                 {"rtypeid": 4, "rtype": "Voltage"}
             ])
         except pymongo.errors.PyMongoError as e:
-            print(e)
             raise DBError()
         except Exception:
             raise DBError()
@@ -787,4 +799,61 @@ class MongoProvider(DatabaseProvider):
             # return the stats container
             return stats
         except Exception:
+            raise DBError()
+
+    
+    async def get_readings_by_period(self, sensorid, groupid, start_date, end_date):
+        """Returns all of the readings for a given time period for a given
+        sensor.
+
+        Args:
+            sensorid (int): The id of the sensor to get readings for.
+            groupid (int): The id of the group the sensor belongs to.
+            start_date (datetime.datetime): The start time period.
+            end_date (datetime.datetime): The end time period.
+        """
+        # bail if not connected to the database
+        if not self._open:
+            raise DBError('Cannot retrieve sensor readings, database connection not open!')
+        try:
+            pipeline = [
+                # filter by sensorid and groupid
+                # these are all indexed so this should be fast
+                {"$match": {
+                        "$and": [{
+                            "sensorid": {"$eq": sensorid},
+                            "groupid": {"$eq": groupid}
+                        }]
+                    }
+                },
+                # optimization step - sort descending by time
+                {"$sort":
+                    {"ts": -1}
+                },
+                # filter by time
+                {"$match": {
+                        "ts": {"$lte": end_date}
+                    }
+                },
+                {"$match": {
+                        "ts": {"$gte": start_date}
+                    }
+                },
+                {"$project": {
+                    "_id": 0, 
+                    "groupid": 1, 
+                    "sensorid": 1, 
+                    "rtypeid": 1, 
+                    "ts": 1, 
+                    "val": 1}
+                }
+            ]
+            readings = []
+            with self._conn[self._db].readings.aggregate(pipeline,
+                    allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
+                for doc in cursor:
+                    readings.append(doc)
+            return readings
+        except Exception as e:
+            print(e)
             raise DBError()

@@ -86,7 +86,7 @@ async def _join(rooms, groupid, sensorid, ws):
         if ws not in rooms[(groupid, sensorid)]:
             rooms[(groupid, sensorid)][ws] = 0
         return True
-    except BaseException:
+    except Exception:
         return False
 
 
@@ -244,6 +244,28 @@ async def ws_handler(request):
                     print('ERROR: Cannot generate stats, there was an issue with the database!')
                     continue
                 # send the response to the client
+                await ws.send_str(simplejson.dumps(resp))
+            elif cmd == 'RQST_DOWNLOAD':
+                # perform verification checks
+                if ('groupid' not in js or 
+                        'start_date' not in js or 
+                        'end_date' not in js):
+                    continue
+                # get request info
+                try:
+                    groupid = int(js['groupid'])
+                    start_date = int(js['start_date'])
+                    end_date = int(js['end_date'])
+                except Exception:
+                    continue
+                resp = dict()
+                resp['cmd'] = 'RESP_DOWNLOAD'
+                try:
+                    resp['data'] = await request.app['db'].get_readings_by_period(sensorid,
+                        groupid, start_date, end_date)
+                except Exception:
+                    print('ERROR: Cannot retrieve readings for download, there was an issue with the database!')
+                    continue
                 await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:
             ws.send_str('WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception()))
