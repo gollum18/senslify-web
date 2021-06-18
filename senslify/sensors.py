@@ -123,8 +123,8 @@ async def sensors_handler(request):
     group = -1
     sensors = []
     try:
-        group = int(request.query['groupid'])
-        async for sensor in request.app['db'].get_sensors(group):
+        groupid = int(request.query['groupid'])
+        async for sensor in request.app['db'].get_sensors(groupid):
             sensor['url'] = build_info_url(request, sensor)
             sensors.append(sensor)
     except Exception as e:
@@ -137,7 +137,7 @@ async def sensors_handler(request):
         return generate_error("ERROR: No sensors found for given group!", 403)
     else:
         return {
-            'title': 'Sensors for group {g}:'.format(g=group),
+            'title': f'Sensors for group {groupid}',
             'sensors': sensors
         }
 
