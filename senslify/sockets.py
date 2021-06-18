@@ -78,12 +78,16 @@ async def _join(rooms, groupid, sensorid, ws):
         sensorid (int): The sensorid corresponding to the room to join.
         ws (aiohttp.web.WebSocketResponse): The WebSocket to add to the room.
     """
-    # create the room if it does not exist
-    if sensorid not in rooms:
-        rooms[(groupid, sensorid)] = dict()
-    # add the client to the room if its not already there, default to temp
-    if ws not in rooms[(groupid, sensorid)]:
-        rooms[(groupid, sensorid)][ws] = 0
+    try:
+        # create the room if it does not exist
+        if sensorid not in rooms:
+            rooms[(groupid, sensorid)] = dict()
+        # add the client to the room if its not already there, default to temp
+        if ws not in rooms[(groupid, sensorid)]:
+            rooms[(groupid, sensorid)][ws] = 0
+        return True
+    except BaseException:
+        return False
 
 
 async def _change_stream(rooms, groupid, sensorid, ws, rtype):
@@ -179,7 +183,11 @@ async def ws_handler(request):
             # adds the requesting websocket as a receiver for messages from
             #   the indicated sensor
             if cmd == 'RQST_JOIN':
-                await _join(request.app['rooms'], groupid, sensorid, ws)
+                result = await _join(request.app['rooms'], groupid, sensorid, ws)
+                resp = dict()
+                resp['cmd'] = 'RESP_JOIN':
+                rest['join_status'] = result
+                await ws.send_str(simplejson.dumps(resp))
             # close the connection if the client requested it
             elif cmd == 'RQST_CLOSE':
                 await _leave(request.app['rooms'], groupid, sensorid, ws)

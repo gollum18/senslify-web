@@ -47,6 +47,7 @@ async def info_handler(request):
         sensorid = int(request.query['sensorid'])
         groupid = int(request.query['groupid'])
         rtypeid = int(request.app['config'].default_rtypeid)
+        max_join_attempts = int(request.app['config'].max_join_attempts)
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
@@ -77,13 +78,14 @@ async def info_handler(request):
         return generate_error("ERROR: No rtypes found in the database!", 403)
     else:
         return {
-            'title': 'Sensor Info',
+            'title': 'Sensor Info for Sensor ' + sensorid,
             'sensorid': sensorid,
             'groupid': groupid,
             'rtypeid': rtypeid,
             'rtypes': rtypes,
             'num_readings': num_readings,
             'ws_url': ws_url,
+            'max_join_attempts': max_join_attempts,
             'start_date': start,
             'end_date': end
         }

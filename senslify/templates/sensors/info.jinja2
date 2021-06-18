@@ -120,11 +120,15 @@
         // the websocket for sending/receiving messages to/from the server
         //  the websocket is constant as it persists for the life of the page
         const ws = new WebSocket('{{ ws_url }}');
+        // the max number of join attempts
+        const max_join_attempts = {{ max_join_attempts }}
         // stores the number of readings seen so far
         var readingsSoFar = 0;
         // stores a reference to the chart object for graphically displaying 
         //  readings
         var rtChart = null;
+        // join attempts so far
+        var join_attempts = 0;
         
         //
         // Define handlers for the window
@@ -153,15 +157,33 @@
         //
         // Define handlers for the WebSocket
         //
-        
-        /**
-         * Client side WS handler that requests the server to enqueue the 
-         * WS representing this client to receive messages for the sensor
-         * indicated by sensorid.
-         */
-        function joinHandler() {
+
+        function sendJoinRequest() {
             let rqst = {'cmd': 'RQST_JOIN', 'groupid': groupid, 'sensorid': sensorid};
             ws.send(JSON.stringify(rqst));
+        }
+        
+        /**
+         * Client side WS Handler that handles join responses.
+         * This handler will attempt do nothing if the join response 
+         * was successful otherwise it will attempt to establish a connection
+         * with the server side socket up to max_join_attempts times.
+         * If this number is exceeded, the web page will be redirected 
+         * to the sensor listing page. 
+         */
+        function joinHandler(resp) {
+            let join_result = resp.join_result;
+            if (join_result === 'false') {
+                if (join_attempts == max_join_attempts) {
+                    // redirect back to the sensor listings page
+                    window.history.back();
+                } else {
+                    setTimeout(() => {
+                        join_attempts += 1;
+                        sendJoinRequest();
+                    }, 250);
+                }
+            }
         }
         
         /**
@@ -300,7 +322,7 @@
          */
         function onWSOpen(err) {
             // Register a listener on the server
-            joinHandler();
+            sendJoinRequest();
             // Only get the initial dataset when the document has loaded
             $(document).ready(function() {
                 onStreamChanged();
@@ -317,8 +339,12 @@
             
             // route the message based on response command
             
+            // handles response from join command
+            if (resp.cmd == "RESP_JOIN") {
+                joinHandler(resp);
+            }
             // handles individual readings
-            if (resp.cmd === "RESP_READING") {
+            else if (resp.cmd === "RESP_READING") {
                 readingHandler(resp);
             }
             // handles whole datasets
