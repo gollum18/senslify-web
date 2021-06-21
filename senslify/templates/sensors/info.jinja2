@@ -11,7 +11,14 @@
 {% endblock %}
 
 {% block header %}
-    <h2>{{ title }} - Senslify</h2>
+    <div class="container-fluid">
+        <div class="row">
+            <h2>{{ title }} - Senslify</h2>
+        </div>
+        <div class="row">
+            <h4 id="generic_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
+        </div>
+    </div>
 {% endblock %}
 
 {% block content %}
@@ -101,13 +108,21 @@
             </table>
           </div>
           <div class="modal-footer">
-            <label for="st_start_date_picker">Start Date:</label>
-            <input id="st_start_date_picker" type="date" value="{{ start_date|date }}" required>
-            <label for="st_end_date_picker">End Date:</label>
-            <input id="st_end_date_picker" type="date" value="{{ end_date|date }}" required>
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-            <input type="button" class="btn btn-primary" value="Get Stats" onclick="onStatsRequested();">
-           </div>
+            <div class="container-fluid">
+              <div class="row">
+                <label for="st_start_date_picker">Start Date:</label>
+                <input id="st_start_date_picker" type="date" value="{{ start_date|date }}" required>
+                <label for="st_end_date_picker">End Date:</label>
+                <input id="st_end_date_picker" type="date" value="{{ end_date|date }}" required>
+              </div>
+              <div class="row">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <input type="button" class="btn btn-primary" value="Get Stats" onclick="onStatsRequested();">
+              </div>
+              <div class="row">
+                <h4 id="stats_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -123,14 +138,23 @@
             </button>
           </div>
           <div class="modal-body">
-            <label for="dl_start_date_picker">Start Date:</label>
-            <input id="dl_start_date_picker" type="date" value="{{ start_date|date }}" required>
-            <label for="dl_end_date_picker">End Date:</label>
-            <input id="dl_end_date_picker" type="date" value="{{ end_date|date }}" required>
-            <label for="dl_filename">Filename:</label>
-            <input id="dl_filename" type="text" value="{{ end_date }}.json" required>
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-            <input type="button" class="btn btn-primary" value="Download" onclick="onDownloadRequested();">
+            <div class="container-fluid">
+              <div class="row">
+                <label for="dl_start_date_picker">Start Date:</label>
+                <input id="dl_start_date_picker" type="date" value="{{ start_date|date }}" required>
+                <label for="dl_end_date_picker">End Date:</label>
+                <input id="dl_end_date_picker" type="date" value="{{ end_date|date }}" required>
+                <label for="dl_filename">Filename:</label>
+                <input id="dl_filename" type="text" value="{{ end_date }}.json" required>
+              </div>
+              <div class="row">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <input type="button" class="btn btn-primary" value="Download" onclick="onDownloadRequested();">
+              </div>
+              <div class="row">
+                <h4 id="download_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -195,6 +219,34 @@
         function sendJoinRequest() {
             let rqst = {'cmd': 'RQST_JOIN', 'groupid': groupid, 'sensorid': sensorid};
             ws.send(JSON.stringify(rqst));
+        }
+
+        /**
+         * Client side WS Handler that handles error responses.
+         * This handler will write the error to one of three locations
+         * depending on the error command that was sent by the server.
+         * This handler will set a 5 second timer on the destination error
+         * control to reset the text content of the control to empty after
+         * the 5 seconds has elapsed.
+         */
+        function errorHandler(resp) {
+            let cmd = resp.cmd;
+            let error = resp.error;
+            let error_control = null;
+            if (cmd === "RESP_ERROR") {
+                error_control = $("#generic_error_control");
+            } else if (cmd === "RESP_STATS_ERROR") {
+                error_control = $("stats_error_control");
+            } else if (cmd === "RESP_DOWNLOAD_ERROR") {
+                error_control = $("download_error_control");
+            }
+            error_control.text(error);
+            // h4 default display property is block, this is unchanged by the danger-alert bootstrap class
+            error_control.css('display', 'block');
+            setTimeout(() => {
+                error_control.text("");
+                error_control.css('display', 'none');
+            }, 5000);
         }
         
         /**
@@ -398,6 +450,18 @@
             // handles stats for datasets
             else if (resp.cmd === "RESP_SENSOR_STATS") {
                 statsHandler(resp);
+            }
+            // handles errors meant to be displayed on the page itself
+            else if (resp.cmd === "RESP_ERROR") {
+                errorHandler(resp);
+            }
+            // handles errors meant to be displayed on the stats modal
+            else if (resp.cmd === "RESP_STATS_ERROR") {
+                errorHandler(resp);
+            } 
+            // handles errors meant to be displayed on the download modal
+            else if (resp.cmd === "RESP_DOWNLOAD_ERROR") {
+                errorHandler(resp);
             }
         }
         

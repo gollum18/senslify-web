@@ -702,17 +702,15 @@ class MongoProvider(DatabaseProvider):
             raise DBError()
 
 
-    async def stats_sensor(self, sensorid, groupid, rtypeid, start, end):
+    async def stats_sensor(self, sensorid, groupid, rtypeid, start_date, end_date):
         """Returns the stats for a specific sensor.
 
         Args:
             sensorid (int): The id of the sensor to retrieve stats on.
             groupid (int): The id of the group the sensor belongs to.
             rtypeid (int): The id of the reading type to retrieve stats for.
-            start (datetime, datetime): The start time that begins the range
-            for stats.
-            end (datetime.datetime): The end time that ends the range for
-            stats.
+            start_date (int): The start time that begins the range for stats.
+            end_date (int): The end time that ends the range for stats.
 
         Returns:
             (dict): A Python dict-like object containing the stats for sensor.
@@ -738,11 +736,11 @@ class MongoProvider(DatabaseProvider):
             },
             # filter by time
             {"$match": {
-                    "ts": {"$lte": end}
+                    "ts": {"$lte": end_date}
                 }
             },
             {"$match": {
-                    "ts": {"$gte": start}
+                    "ts": {"$gte": start_date}
                 }
             },
             # project just the value field
