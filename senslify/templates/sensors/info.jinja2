@@ -463,6 +463,11 @@
             else if (resp.cmd === "RESP_DOWNLOAD_ERROR") {
                 errorHandler(resp);
             }
+            // handles if the server responds with an invalid cmd
+            else {
+                resp.error = "ERROR: Server sent invalid command!";
+                errorHandler(resp);
+            }
         }
         
         // Register handlers for the WebSocket
