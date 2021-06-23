@@ -56,7 +56,9 @@ async def find_handler(request, target, params):
             for doc in request.app['db'].get_sensors(groupid):
                 docs.append(doc)
         elif target == 'readings':
-            for doc in request.app['db'].get_readings():
+            sensorid = params['sensorid']
+            groupid = params['groupid']
+            for doc in request.app['db'].get_readings(sensorid, groupid):
                 docs.append(doc)
     except Exception as e:
         if request.app.config['debug']:
@@ -65,7 +67,7 @@ async def find_handler(request, target, params):
             return generate_error('ERROR: There was an issue understanding target/params!', 403)
 
     # build and return the response
-    resp_body = dict()
+    resp_body = []
     resp_body['docs'] = docs
     return aiohttp.web.Response(body=simplejson.dumps(resp_body))
 
@@ -96,6 +98,39 @@ async def stats_handler(request, target, params):
         elif target == 'sensors':
             sensorid = int(params['sensorid'])
             resp_body['stats'] = await request.db.stats_sensor(sensorid, groupid, rtypeid, start_date, end_date)
+        else: # returned when the target is incorrect
+            return aiohttp.web.Response()
+    except Exception as e:
+        if request.app.config['debug']:
+            return aiohttp.web.Response(traceback_str(e), 403)
+        else:
+            return aiohttp.web.Response('ERROR: Unable to understand target/parameters!', 403)
+    # the standard return - if we got here, then everything went ok
+    return aiohttp.web.Response(body=simplejson.dumps(resp_body))
+
+
+async def downloads_handler(request, target, params):
+    """Defines a handler for the download target.
+
+    Args:
+        request (aiohttp.web.Request): The request that initiated the REST handler.
+        target (str): The target to initiate the find command against.
+        params (dict): A dictionary containing parameters for the target.
+
+    Returns:
+        (aiohttp.web.Response) A Response object containing the results of
+        executing the downloads_handler as a serialized JSON object in its body.
+        Statistics are keyed via the 'download' key.
+    """
+    # validation is performed in the rest dispatching method
+    try:
+        sensorid = int(params['sensorid'])
+        groupid = int(params['groupid'])
+        start_date = int(params['start_date'])
+        end_date = int(params['end_date'])
+        resp_body = dict()
+        # call the appropriate db handler based on target
+        resp_body['readings'] = await request.db.get_readings_by_period(sensorid, groupid, start_date, end_date)
         else: # returned when the target is incorrect
             return aiohttp.web.Response()
     except Exception as e:
