@@ -465,6 +465,7 @@
             }
             // handles if the server responds with an invalid cmd
             else {
+                resp.cmd = "RESP_ERROR";
                 resp.error = "ERROR: Server sent invalid command!";
                 errorHandler(resp);
             }
