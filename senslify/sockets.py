@@ -90,7 +90,7 @@ async def _join(rooms, groupid, sensorid, ws):
         return False
 
 
-async def _change_stream(rooms, groupid, sensorid, ws, rtype):
+async def _change_stream(rooms, groupid, sensorid, ws, rtypeid):
     """Changes the data stream the WebSocket receives.
 
     Args:
@@ -98,12 +98,12 @@ async def _change_stream(rooms, groupid, sensorid, ws, rtype):
         groupid (int): The groupid corresponding to the room the WebSocket is in.
         sensorid (int): The sensorid corresponding to the room the WebSocket is in.
         ws (aiohttp.web.WebSocketResponse): The WebSocket to change stream for.
-        rtype (int): The stream type to change to.
+        rtypeid (int): The stream type to change to.
     """
     # check if the ws exists, return if so
     if not _does_ws_exist(rooms, groupid, sensorid, ws):
         return
-    rooms[(groupid, sensorid)][ws] = int(rtype)
+    rooms[(groupid, sensorid)][ws] = int(rtypeid)
 
 
 async def message(rooms, groupid, sensorid, msg):
