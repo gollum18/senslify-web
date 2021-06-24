@@ -57,7 +57,11 @@ async def index_handler(request):
     try:
         # get the group information from the database
         async for group in request.app['db'].get_groups():
-            group['url'] = build_sensors_url(request, group)
+            url = build_sensors_url(request, group)
+            # if there was an error building the info url, return the error page
+            if isinstance(url, aiohttp.web.Response):
+                return url
+            group['url'] = url
             groups.append(group)
     except Exception as e:
         if request.app.config['debug']:

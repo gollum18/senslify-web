@@ -131,7 +131,11 @@ async def sensors_handler(request):
     try:
         groupid = int(request.query['groupid'])
         async for sensor in request.app['db'].get_sensors(groupid):
-            sensor['url'] = build_info_url(request, sensor)
+            url = build_info_url(request, sensor)
+            # if there was an error building the info url, return the error page
+            if isinstance(url, aiohttp.web.Response):
+                return url
+            sensor['url'] = url
             sensors.append(sensor)
     except Exception as e:
         if request.app['config'].debug:

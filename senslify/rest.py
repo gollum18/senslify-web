@@ -131,8 +131,6 @@ async def download_handler(request, target, params):
         resp_body = dict()
         # call the appropriate db handler based on target
         resp_body['readings'] = await request.db.get_readings_by_period(sensorid, groupid, start_date, end_date)
-        else: # returned when the target is incorrect
-            return aiohttp.web.Response()
     except Exception as e:
         if request.app.config['debug']:
             return aiohttp.web.Response(traceback_str(e), 403)

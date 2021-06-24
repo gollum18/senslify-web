@@ -371,8 +371,8 @@
         function statsHandler(resp) {
             let stats = resp.stats;
             let rtext = $("#sel_rtype option:selected").text();
-            let start_date = $("#start_date_picker").val();
-            let end_date = $("#end_date_picker").val()
+            let start_date = $("#st_start_date_picker").val();
+            let end_date = $("#st_end_date_picker").val()
             
             $("#stats_header").text(`Showing ${rtext} stats for the range: ${start_date} - ${end_date}`);
                 
