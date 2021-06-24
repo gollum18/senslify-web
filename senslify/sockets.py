@@ -301,9 +301,12 @@ async def ws_handler(request):
                     await ws.send_str(simplejson.dumps(resp))
                     continue
                 try:
-                    resp['data'] = await request.app['db'].get_readings_by_period(sensorid,
-                        groupid, start_date, end_date)
-                except Exception:
+                    data = []
+                    async for doc in request.app['db'].get_readings_by_period(sensorid,
+                        groupid, start_date, end_date):
+                        data.append(doc)
+                    resp['data'] = data
+                except Exception as e:
                     resp['cmd'] = 'RESP_DOWNLOAD_ERROR'
                     resp['error'] = 'ERROR: Cannot retrieve readings for download, there was an issue with the database!'
                 await ws.send_str(simplejson.dumps(resp))

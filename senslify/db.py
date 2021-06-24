@@ -118,6 +118,9 @@ class DatabaseProvider:
 
         Args:
             groupid (int): The id of the group to check for.
+
+        Returns:
+            (boolean): True if the group exists, False otherwise.
         """
         raise NotImplementedError
 
@@ -127,6 +130,9 @@ class DatabaseProvider:
 
         Args:
             rtypeid (int): The id of the rtype to check for.
+
+        Returns:
+            (boolean): True if the reading type exists, False otherwise.
         """
         raise NotImplementedError
 
@@ -137,6 +143,9 @@ class DatabaseProvider:
         Args:
             sensorid (int): The id of the sensor to check for.
             groupid (int): The id of the group the sensor belongs to.
+
+        Returns:
+            (boolean): True if the sensor sensor exists, False otherwise.
         """
         raise NotImplementedError
 
@@ -399,8 +408,7 @@ class MongoProvider(DatabaseProvider):
             groupid (int): The id of the group to check for.
         """
         if not self._open:
-            print('Cannot determine if group exists, database connection not open!')
-            return
+            raise DBError('Cannot determine if group exists, database connection not open!')
         try:
             return self._conn[self._db].groups.find_one(
                 filter={'groupid': groupid}) is not None
@@ -417,8 +425,7 @@ class MongoProvider(DatabaseProvider):
             rtypeid (int): The id of the rtype to check for.
         """
         if not self._open:
-            print('Cannot determine if rtype exists, database connection not open!')
-            return
+            raise DBError('Cannot determine if rtype exists, database connection not open!')
         try:
             return self._conn[self._db].rtypes.find_one(
                 filter={'rtypeid': rtypeid}) is not None
@@ -435,8 +442,7 @@ class MongoProvider(DatabaseProvider):
             sensorid (int): The id of the sensor to check for.
         """
         if not self._open:
-            print('Cannot determine if sensor exists, database connection not open!')
-            return
+            raise DBError('Cannot determine if sensor exists, database connection not open!')
         try:
             return self._conn[self._db].sensors.find_one(
                     filter={'sensorid': sensorid,
@@ -454,8 +460,7 @@ class MongoProvider(DatabaseProvider):
             batch_size (int): The number of groups to return in each batch.
         """
         if not self._open:
-            print('Cannot get groups, database connection not open!')
-            return
+            raise DBError('Cannot get groups, database connection not open!')
         try:
             with self._conn[self._db].groups.find({},
                     {'_id': False}) as cursor:
@@ -477,8 +482,7 @@ class MongoProvider(DatabaseProvider):
             limit (int): The number of readings to return in a single call.
         """
         if not self._open:
-            print('Cannot get readings, database connection not open!')
-            return
+            raise DBError('Cannot get readings, database connection not open!')
         try:
             sensorid = int(sensorid)
             groupid = int(groupid)
@@ -499,8 +503,7 @@ class MongoProvider(DatabaseProvider):
             batch_size (int): The number of reading types to return in each batch.
         """
         if not self._open:
-            print('Cannot get rtypes, database connection not open!')
-            return
+            raise DBError('Cannot get rtypes, database connection not open!')
         try:
             with self._conn[self._db].rtypes.find({}, {'_id': False}) as cursor:
                 for doc in cursor:
@@ -519,8 +522,7 @@ class MongoProvider(DatabaseProvider):
             batch_size (int): The number of sensors to return in a single batch.
         """
         if not self._open:
-            print('Cannot get sensors, database connection not open!')
-            return
+            raise DBError('Cannot get sensors, database connection not open!')
         try:
             groupid = int(groupid)
             with self._conn[self._db].sensors.find({'groupid': groupid}, {'_id': False}) as cursor:
@@ -539,8 +541,7 @@ class MongoProvider(DatabaseProvider):
             groupid (int): The id of the group.
         """
         if not self._open:
-            print('Cannot insert group, database connection not open!')
-            return
+            raise DBError('Cannot insert group, database connection not open!')
         groupid = int(groupid)
         try:
             if not await self.does_group_exist(groupid):
@@ -558,8 +559,7 @@ class MongoProvider(DatabaseProvider):
             reading (dict): The reading to insert into the database.
         """
         if not self._open:
-            print('Cannot insert reading, database connection not open!')
-            return
+            raise DBError('Cannot insert reading, database connection not open!')
         # FIX: The verify operation is now performed in the upload handler
         try:
             # remove the command if necessary
@@ -594,8 +594,7 @@ class MongoProvider(DatabaseProvider):
             batch_size (int): The amount of readings to insert per batch.
         """
         if not self._open:
-            print('Cannot insert readings, database connection not open!')
-            return
+            raise DBError('Cannot insert readings, database connection not open!')
         if not map(verify_reading, readings):
             return False, None
         try:
@@ -620,8 +619,7 @@ class MongoProvider(DatabaseProvider):
             groupid (int): The id of the group the sensorboard belongs to.
         """
         if not self._open:
-            print('Cannot insert sensor, database connection not open!')
-            return
+            raise DBError('Cannot insert sensor, database connection not open!')
         try:
             self._conn[self._db].sensors.insert_one({
                 'sensorid': sensorid,
@@ -697,7 +695,8 @@ class MongoProvider(DatabaseProvider):
         try:
             with self._conn[self._db].readings.aggregate(pipeline,
                     allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                return cursor.next()
+                for doc in cursor:
+                    yield doc
         except Exception:
             raise DBError()
 
@@ -846,12 +845,10 @@ class MongoProvider(DatabaseProvider):
                     "val": 1}
                 }
             ]
-            readings = []
             with self._conn[self._db].readings.aggregate(pipeline,
                     allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
                 for doc in cursor:
-                    readings.append(doc)
-            return readings
+                    yield doc
         except Exception as e:
             print(e)
             raise DBError()
