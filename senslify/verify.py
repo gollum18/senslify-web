@@ -120,6 +120,20 @@ def verify_reading(reading):
     if 'val' not in reading:
         return False
 
-    # TODO: Check the individual data fields as well
+    # ensure they are the correct type
+    try:
+        sensorid = int(reading['sensorid'])
+        groupid = int(reading['groupid'])
+        rtypeid = int(reading['rtypeid'])
+        ts = int(reading['ts'])
+        val = float(reading['val'])
+    except Exception:
+        return False
+
+    # ensure they are in the correct range
+    if sensorid < 0: return False
+    if groupid < 0: return False
+    if rtypeid < 0: return False
+    if ts < 0: return False
 
     return True
