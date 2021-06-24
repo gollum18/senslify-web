@@ -26,7 +26,7 @@ from senslify.verify import verify_reading
 
 @aiohttp_jinja2.template('sensors/info.jinja2')
 async def info_handler(request):
-    """Defines a POST endpoint for the sensor info page.
+    """Defines a GET endpoint for the sensor info page.
 
     Arguments:
         request (aiohttp.web.Request): An aiohttp.web.Request object.
