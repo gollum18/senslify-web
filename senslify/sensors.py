@@ -114,7 +114,6 @@ def build_info_url(request, sensor):
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error('ERROR: Internal server issue occurred!', 403)
-    return route
 
 
 @aiohttp_jinja2.template('sensors/sensors.jinja2')
