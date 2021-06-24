@@ -218,15 +218,15 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
-    async def stats_group(self, groupid, rtypeid, start=None, end=None):
+    async def stats_group(self, groupid, rtypeid, start_ts=None, end_ts=None):
         """Returns the stats for an entire group of sensors.
 
         Args:
             groupid (int): The id of the group the sensor belongs to.
             rtypeid (int): The id of the reading type to retrieve stats for.
-            start (datetime.datetime): The start time that begins the range
+            start_ts (datetime.datetime): The start time that begins the range
             for stats (default:None).
-            end (datetime.datetime): The end time that ends the range for
+            end_ts (datetime.datetime): The end time that ends the range for
             stats (default: None).
 
         Returns:
@@ -238,16 +238,16 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
-    async def stats_sensor(self, sensorid, groupid, rtypeid, start, end):
+    async def stats_sensor(self, sensorid, groupid, rtypeid, start_ts, end_ts):
         """Returns the stats for a specific sensor.
 
         Args:
             sensorid (int): The id of the sensor to retrieve stats on.
             groupid (int): The id of the group the sensor belongs to.
             rtypeid (int): The id of the reading type to retrieve stats for.
-            start (datetime, datetime): The start time that begins the range
+            start_date (datetime.datetime): The start time that begins the range
             for stats.
-            end (datetime.datetime): The end time that ends the range for
+            end_date (datetime.datetime): The end time that ends the range for
             stats.
 
         Raises:
@@ -256,15 +256,15 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
-    async def get_readings_by_period(self, sensorid, groupid, start_date, end_date):
+    async def get_readings_by_period(self, sensorid, groupid, start_ts, end_ts):
         """Returns all of the readings for a given time period for a given
         sensor.
 
         Args:
             sensorid (int): The id of the sensor to get readings for.
             groupid (int): The id of the group the sensor belongs to.
-            start_date (datetime.datetime): The start time period.
-            end_date (datetime.datetime): The end time period.
+            start_ts (datetime.datetime): The start time period.
+            end_ts (datetime.datetime): The end time period.
         """
         raise NotImplementedError
 
@@ -654,15 +654,15 @@ class MongoProvider(DatabaseProvider):
                 raise DBError()
 
 
-    async def stats_group(self, groupid, rtypeid, start, end):
+    async def stats_group(self, groupid, rtypeid, start_ts, end_ts):
         """Returns the stats for an entire group of sensors.
 
         Args:
             groupid (int): The id of the group the sensor belongs to.
             rtypeid (int): The id of the reading type to retrieve stats for.
-            start (datetime.datetime): The start time that begins the range
+            start_ts (datetime.datetime): The start time that begins the range
             for stats.
-            end (datetime.datetime): The end time that ends the range for
+            end_ts (datetime.datetime): The end time that ends the range for
             stats.
 
         Returns:
@@ -688,8 +688,8 @@ class MongoProvider(DatabaseProvider):
             # filter out all elements that do not fit within the time bound
             {"$match": {
                     "$and": [{
-                        "ts": {"$gte": start},
-                        "ts": {"$lte": end}
+                        "ts": {"$gte": start_ts},
+                        "ts": {"$lte": end_ts}
                     }]
                 }
             }
@@ -702,15 +702,15 @@ class MongoProvider(DatabaseProvider):
             raise DBError()
 
 
-    async def stats_sensor(self, sensorid, groupid, rtypeid, start_date, end_date):
+    async def stats_sensor(self, sensorid, groupid, rtypeid, start_ts, end_ts):
         """Returns the stats for a specific sensor.
 
         Args:
             sensorid (int): The id of the sensor to retrieve stats on.
             groupid (int): The id of the group the sensor belongs to.
             rtypeid (int): The id of the reading type to retrieve stats for.
-            start_date (int): The start time that begins the range for stats.
-            end_date (int): The end time that ends the range for stats.
+            start_ts (int): The start time that begins the range for stats.
+            end_ts (int): The end time that ends the range for stats.
 
         Returns:
             (dict): A Python dict-like object containing the stats for sensor.
@@ -736,11 +736,11 @@ class MongoProvider(DatabaseProvider):
             },
             # filter by time
             {"$match": {
-                    "ts": {"$lte": end_date}
+                    "ts": {"$lte": end_ts}
                 }
             },
             {"$match": {
-                    "ts": {"$gte": start_date}
+                    "ts": {"$gte": start_ts}
                 }
             },
             # project just the value field
@@ -800,15 +800,15 @@ class MongoProvider(DatabaseProvider):
             raise DBError()
 
     
-    async def get_readings_by_period(self, sensorid, groupid, start_date, end_date):
+    async def get_readings_by_period(self, sensorid, groupid, start_ts, end_ts):
         """Returns all of the readings for a given time period for a given
         sensor.
 
         Args:
             sensorid (int): The id of the sensor to get readings for.
             groupid (int): The id of the group the sensor belongs to.
-            start_date (datetime.datetime): The start time period.
-            end_date (datetime.datetime): The end time period.
+            start_ts (datetime.datetime): The start time period.
+            end_ts (datetime.datetime): The end time period.
         """
         # bail if not connected to the database
         if not self._open:
@@ -830,11 +830,11 @@ class MongoProvider(DatabaseProvider):
                 },
                 # filter by time
                 {"$match": {
-                        "ts": {"$lte": end_date}
+                        "ts": {"$lte": end_ts}
                     }
                 },
                 {"$match": {
-                        "ts": {"$gte": start_date}
+                        "ts": {"$gte": start_ts}
                     }
                 },
                 {"$project": {
