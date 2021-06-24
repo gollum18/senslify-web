@@ -101,12 +101,19 @@ def build_info_url(request, sensor):
     request -- The request that wants the sensor url.
     sensor -- The sensor to generate a url for.
     """
-    route = request.app.router['info'].url_for().with_query(
-        {
-            'sensorid': sensor['sensorid'],
-            'groupid': sensor['groupid']
-        }
-    )
+    try:
+        route = request.app.router['info'].url_for().with_query(
+            {
+                'sensorid': sensor['sensorid'],
+                'groupid': sensor['groupid']
+            }
+        )
+        return route
+    except Exception as e:
+        if request.app.config['debug']:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error('ERROR: Internal server issue occurred!', 403)
     return route
 
 

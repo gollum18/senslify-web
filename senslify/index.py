@@ -28,19 +28,18 @@ def build_sensors_url(request, group):
     Returns:
         (aiohttp.web.Response): An aiohttp.web.Response object.
     """
-    route = None
     try:
         route = request.app.router['sensors'].url_for().with_query(
             {
                 'groupid': group['groupid']
             }
         )
+        return route
     except Exception as e:
         if request.app.config['debug']:
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error('ERROR: Internal server issue occurred!', 403)
-    return route
 
 
 @aiohttp_jinja2.template('sensors/index.jinja2')
