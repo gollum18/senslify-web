@@ -236,9 +236,9 @@
             if (cmd === "RESP_ERROR") {
                 error_control = $("#generic_error_control");
             } else if (cmd === "RESP_STATS_ERROR") {
-                error_control = $("stats_error_control");
+                error_control = $("#stats_error_control");
             } else if (cmd === "RESP_DOWNLOAD_ERROR") {
-                error_control = $("download_error_control");
+                error_control = $("#download_error_control");
             }
             error_control.text(error);
             // h4 default display property is block, this is unchanged by the danger-alert bootstrap class
@@ -316,7 +316,8 @@
                     tdAvg.text(newMu.toFixed(4));
                 }
             } catch (err) {
-                console.log(err);
+                msg = {'cmd': "RESP_ERROR", error: String(err)};
+                errorHandler(msg);
                 readingsSoFar = 0;
                 tdMin.text("0");
                 tdMax.text("0");
@@ -399,7 +400,7 @@
         }
         
         /**
-         * Client side WS handlet that is fired when the WebSocket is closed.
+         * Client side WS handle that is fired when the WebSocket is closed.
          * Handles cleaning up after it.
          */
         function onWSClose() {
@@ -558,8 +559,6 @@
             $("#list_readings > li")
                 .first()
                 .addClass("active");
-                
-            console.log($("#list_readings").first());
         }
 
         function onDownloadRequested() {
@@ -583,8 +582,6 @@
                 'start_date': start_date,
                 'end_date': end_date
             };
-
-            console.log(msg);
             
             // send the message to the server
             ws.send(JSON.stringify(msg));
