@@ -77,7 +77,7 @@ async def stats_handler(request, target, params):
 
     Args:
         request (aiohttp.web.Request): The request that initiated the REST handler.
-        target (str): The target to initiate the find command against.
+        target (str): The target to initiate the stats command against.
         params (dict): A dictionary containing parameters for the target.
 
     Returns:
@@ -109,12 +109,12 @@ async def stats_handler(request, target, params):
     return aiohttp.web.Response(body=simplejson.dumps(resp_body))
 
 
-async def downloads_handler(request, target, params):
+async def download_handler(request, target, params):
     """Defines a handler for the download target.
 
     Args:
         request (aiohttp.web.Request): The request that initiated the REST handler.
-        target (str): The target to initiate the find command against.
+        target (str): The target to initiate the download command against.
         params (dict): A dictionary containing parameters for the target.
 
     Returns:
@@ -176,6 +176,8 @@ async def rest_handler(request):
         response = find_handler(request, target, params)
     elif cmd == 'stats':
         response = stats_handler(request, target, params)
+    elif cmd == 'download':
+        response = download_handler(request, target, params)
     else:
         response = aiohttp.request.Response(text='ERROR: Invalid command specified!', status=403)
 
