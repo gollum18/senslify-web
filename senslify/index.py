@@ -39,7 +39,7 @@ def build_sensors_url(request, group):
         if request.app.config['debug']:
             return generate_error(traceback_str(e), 403)
         else:
-            return generate_errro('ERROR: Internal server issue occurred!', 403)
+            return generate_error('ERROR: Internal server issue occurred!', 403)
     return route
 
 
