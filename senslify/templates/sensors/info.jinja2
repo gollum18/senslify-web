@@ -175,7 +175,7 @@
           <div class="modal-body">
             <div class="container-fluid">
               <div class="row">
-                <ul class="list-group" id="list_alerts"><ul>
+                <ul class="list-group" id="list_alerts" style="white-space: pre-wrap"><ul>
               </div>
               <div class="row">
                 <input type="button" class="btn btn-primary" value="Clear Alerts" onclick="onAlertsCleared();">
@@ -576,10 +576,11 @@
          */
         function pushAlert(reading) {
             // format the alert message
-            let alert = `Current Reading: ${reading.rstring}\nPrior Reading:${priorReading}`
+            let alert = `Current Reading: ${reading.rstring}\nPrior Reading:${priorReading.rstring}`;
 
             // push the alert message
             $('<li/>')
+                .addClass("list-group-item")
                 .text(alert)
                 .prependTo($("#list_alerts"));
         }
