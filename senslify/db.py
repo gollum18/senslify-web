@@ -24,10 +24,6 @@
 #   DatabaseProvider methods in the context of MongoDB and is the default
 #   provider for the Senslify web application.
 
-# TODO: A request came in to implement human readable names for groups instead
-#   of numeric id's, but I don't think I can reasonably accomodate it
-#   this far into the project. If a future maintainer wants to handle it
-#   you're welcome to do so - CF
 # TODO: Also note that the database is intentionally unsecured. Future
 #   future maintainers *should* (shall) implement security on the database
 #   side before releasing this software into production. I have made reasonable
@@ -224,6 +220,16 @@ class DatabaseProvider:
 
     def open(self):
         """Opens a connection to the backing database server."""
+        raise NotImplementedError
+
+
+    async def provision_sensor(self, groupid):
+        '''Determines the maxmimum sensor identifier stored in the database for the 
+        specified group.
+
+        Arguments:
+            groupid (int): A group identifier that the sensor will be provisioned with.
+        '''
         raise NotImplementedError
 
 
@@ -660,6 +666,12 @@ class MongoProvider(DatabaseProvider):
 
 
     async def provision_sensor(self, groupid):
+        '''Determines the maxmimum sensor identifier stored in the database for the 
+        specified group.
+
+        Arguments:
+            groupid (int): A group identifier that the sensor will be provisioned with.
+        '''
         if not self._open:
             raise DBError('Cannot retrieve stats for sensor, database connection not open!')
         groupid = int(groupid)

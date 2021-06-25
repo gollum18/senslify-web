@@ -53,6 +53,14 @@ def build_info_url(request, sensor):
 
 word_gen = RandomWords()
 def generate_alias(words=3):
+    '''Returns an n-word plain-English alias separated by hyphens.
+
+    Arguments:
+        words (int): The number of words in the alias (default: 3).
+
+    Returns:
+        (str): A string containing hyphenated plain-English words.
+    '''
     '-'.join([word_gen.get_random_word for i in range(len(words))])
 
 
