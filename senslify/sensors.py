@@ -25,6 +25,37 @@ from senslify.sockets import message
 from senslify.verify import verify_reading
 
 
+def build_info_url(request, sensor):
+    """Helper function that creates a url for a given sensor.
+
+    This function is called primarily by the sensors_handler function to
+    generate links to the sensor info page.
+
+    Arguments:
+        (request): - The request that wants the sensor url.
+        (sensor): The sensor to generate a url for.
+    """
+    try:
+        route = request.app.router['info'].url_for().with_query(
+            {
+                'sensorid': sensor['sensorid'],
+                'groupid': sensor['groupid'],
+                'alias': sensor['alias']
+            }
+        )
+        return route
+    except Exception as e:
+        if request.app.config['debug']:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error('ERROR: Internal server issue occurred!', 403)
+
+
+word_gen = RandomWords()
+def generate_alias(words=3):
+    '-'.join([word_gen.get_random_word for i in range(len(words))])
+
+
 @aiohttp_jinja2.template('sensors/info.jinja2')
 async def info_handler(request):
     """Defines a GET endpoint for the sensor info page.
@@ -47,8 +78,10 @@ async def info_handler(request):
     try:
         sensorid = int(request.query['sensorid'])
         groupid = int(request.query['groupid'])
+        alias = request.query['alias']
         rtypeid = int(request.app['config'].default_rtypeid)
         max_join_attempts = int(request.app['config'].max_join_attempts)
+        max_reading_deviation = float(request.app['config'].max_reading_deviation)
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
@@ -79,47 +112,19 @@ async def info_handler(request):
         return generate_error("ERROR: No rtypes found in the database!", 403)
     else:
         return {
-            'title': f'Sensor Info for Sensor {sensorid}',
+            'title': f'Sensor Info for Sensor \'{alias}\'',
             'sensorid': sensorid,
             'groupid': groupid,
+            'alias': alias,
             'rtypeid': rtypeid,
             'rtypes': rtypes,
             'num_readings': num_readings,
             'ws_url': ws_url,
             'max_join_attempts': max_join_attempts,
+            'max_reading_deviation': max_reading_deviation,
             'start_date': start,
             'end_date': end
         }
-
-
-def build_info_url(request, sensor):
-    """Helper function that creates a url for a given sensor.
-
-    This function is called primarily by the sensors_handler function to
-    generate links to the sensor info page.
-
-    Arguments:
-        (request): - The request that wants the sensor url.
-        (sensor): The sensor to generate a url for.
-    """
-    try:
-        route = request.app.router['info'].url_for().with_query(
-            {
-                'sensorid': sensor['sensorid'],
-                'groupid': sensor['groupid']
-            }
-        )
-        return route
-    except Exception as e:
-        if request.app.config['debug']:
-            return generate_error(traceback_str(e), 403)
-        else:
-            return generate_error('ERROR: Internal server issue occurred!', 403)
-
-
-word_gen = RandomWords()
-def generate_alias(words=3):
-    '-'.join([word_gen.get_random_word for i in range(len(words))])
 
 
 async def provision_handler(request):

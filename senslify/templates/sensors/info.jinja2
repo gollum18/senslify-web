@@ -25,7 +25,7 @@
     <!-- This section defines the stats display for real-time stats. -->
     <section class="container-fluid">
         <div class="row">
-            <h3>Real-time stats for Sensor: {{ sensorid }}</h3>
+            <h3>Real-time stats for Sensor '{{ alias }}':</h3>
         </div>
         <div class="row">
             <table class="table">
@@ -43,14 +43,19 @@
         </div>
         <div class=container-fluid>
             <div class="row">
-                <div class="col-xs-6 pr-3 text-left">
+                <div class="col-xs-6 pr-3">
                     <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#statsModal">
                     View Historical Stats
                     </button>
                 </div>
-                <div class="col-xs-6 pl-3 text-right">
+                <div class="col-xs-6 pl-3 pr-3">
                     <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#downloadModal">
                     Download Sensor Readings
+                    </button>
+                </div>
+                <div class="col-xs-6 pl-3">
+                    <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#alertsModal">
+                    View Sensor Alerts
                     </button>
                 </div>
             </div>
@@ -59,7 +64,7 @@
     <!-- This section defines the live chart. -->
     <section class="container-fluid">
         <div class="row">
-            <h3>Live Display for Sensor: {{ sensorid }}</h3>
+            <h3>Live Display for Sensor '{{ alias }}':</h3>
         </div>
         <div class="row">
             <div class="chart-container" style="position: relative; height:40vh; width:80vw">
@@ -80,7 +85,7 @@
         </div>
     </section>
     <section class="container-fluid">
-        <h3>Last {{ num_readings }} Readings for Sensor {{ sensorid }}:</h3>
+        <h3>Last {{ num_readings }} Readings for Sensor {{ alias }}:</h3>
         <ul class="list-group" id="list_readings"></ul>
     </section>
     <!-- This defines the modal for selecting stats over a time period -->
@@ -116,7 +121,6 @@
                 <input id="st_end_date_picker" type="date" value="{{ end_date|date }}" required>
               </div>
               <div class="row">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                 <input type="button" class="btn btn-primary" value="Get Stats" onclick="onStatsRequested();">
               </div>
               <div class="row">
@@ -132,7 +136,7 @@
       <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 id="download_header">Download:</h5>
+            <h5 id="download_header">Download readings for sensor \'{{ alias }}\':</h5>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -148,11 +152,34 @@
                 <input id="dl_filename" type="text" value="{{ end_date }}.json" required>
               </div>
               <div class="row">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                 <input type="button" class="btn btn-primary" value="Download" onclick="onDownloadRequested();">
               </div>
               <div class="row">
                 <h4 id="download_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- This defines the modal that displays sensor measurement alerts -->
+    <div class="modal fade bd-example-modal-lg" id="alertsModal" tabindex="-1" role="dialog"  aria-labelledby="On-Demand Download" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="alerts_header">Alerts for sensor '{{ alias }}':</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="container-fluid">
+              <div class="row">
+                <ul id="list_alerts" class="list-group">
+                <ul>
+              </div>
+              <div class="row">
+                <input type="button" class="btn btn-primary" value="Clear Alerts" onclick="onAlertsCleared();">
               </div>
             </div>
           </div>
@@ -180,14 +207,17 @@
         const ws = new WebSocket('{{ ws_url }}');
         // the max number of join attempts
         const max_join_attempts = {{ max_join_attempts }};
+        // the deviation tolerance for sensor readings
+        const max_reading_deviation = {{ max_reading_deviation }};
         // stores the number of readings seen so far
         var readingsSoFar = 0;
+        // stores the prior reading that was received
+        var priorReading = 0;
         // stores a reference to the chart object for graphically displaying 
         //  readings
         var rtChart = null;
         // join attempts so far
         var join_attempts = 0;
-        
         //
         // Define handlers for the window
         //
@@ -295,11 +325,11 @@
                 rlist.children().last().remove();
             }
             
-            // update the stats for the readings
             // TODO: We probably want to store the stuff for averaging
             //  separately as the current method works on floats of two
             //  different precisions
             try {
+                // update the stats for the readings
                 let value = parseFloat(resp.readings[0].val);
                 let oldMin = parseFloat(tdMin.text());
                 let oldMax = parseFloat(tdMax.text());
@@ -315,8 +345,22 @@
                     let newMu = oldMu + ((value - oldMu) / readingsSoFar);
                     tdAvg.text(newMu.toFixed(4));
                 }
+                // check if an alert needs raised
+                if (readingsSoFar > 0) {
+                    let priorValue = parseFloat(priorReading.val)
+                    if (value > priorValue + priorValue * max_reading_deviation) {
+                        pushAlert(resp.readings[0]);
+                        let msg = {'cmd': 'RESP_ERROR', 'error': 'Most recent reading is above tolerated amount!'}
+                        errorHandler(msg);
+                    } else if (value < priorValue - priorValue * max_reading_deviation) {
+                        pushAlert(resp.readings[0]);
+                        let msg = {'cmd': 'RESP_ERROR', 'error': 'Most recent reading is below tolerated amount!'};
+                        errorHandler(msg);
+                    }
+                }
+                priorReading = resp.readings[0];
             } catch (err) {
-                msg = {'cmd': "RESP_ERROR", error: String(err)};
+                let msg = {'cmd': "RESP_ERROR", error: String(err)};
                 errorHandler(msg);
                 readingsSoFar = 0;
                 tdMin.text("0");
@@ -397,6 +441,9 @@
             
             // reload the list
             reloadList(resp.readings);
+
+            // empty the alerts modal
+            onAlertsCleared();
         }
         
         /**
@@ -506,7 +553,7 @@
                     maintainAspectRatio: false,
                     title: {
                         display: true,
-                        text: "Time Series for Sensor {{ sensorid }}"
+                        text: "Time Series for Sensor '{{ alias }}'"
                     },
                     // enable scaling in realtime
                     scales: {
@@ -522,6 +569,19 @@
                     }
                 }
             });
+        }
+
+        /**
+         * Generates and pushes a sensor reading alert to the alert modal.
+         */
+        function pushAlert(reading) {
+            // format the alert message
+            let alert = `Current Reading: ${reading.rstring}\nPrior Reading:${priorReading}`
+
+            // push the alert message
+            $('<li/>')
+                .text(alert)
+                .prependTo($("#list_alerts"));
         }
         
         /**
@@ -561,6 +621,19 @@
                 .addClass("active");
         }
 
+        /**
+         * onclick button event handler that handles when the alarm events 
+         * are cleared from the alarm modal.
+         */
+        function onAlertsCleared() {
+            // removes all child li elements from the alerts list
+            $("#list_alerts").empty();
+        }
+
+        /**
+         * onclick button event handler that handles when a download is 
+         * requested.
+         */
         function onDownloadRequested() {
             let start_date = $("#dl_start_date_picker").val();
             let end_date = $("#dl_end_date_picker").val();

@@ -43,6 +43,17 @@ from senslify.sockets import (
 import senslify.filters
 
 
+def init_service_worker(timeout=7):
+    """Initializes the migration service worker to run every \'timeout\' days.
+    The service worker will migrate records older than 30 days from the primary
+    database to the secondary database as specified in the design documentation.
+
+    Arguments:
+        timeout (int): The number of days in-between migrations.
+    """
+    pass # Not implemented as of yet
+
+
 def get_local_ip():
     """Gets the local IP address of the host running the server."""
 
@@ -64,9 +75,9 @@ def build_app(config_file='./senslify/config/senslify.conf'):
     """ Factory function that creates a new instance of the server with
     the given configuration.
 
-    Args:
-    config_file (str): The path to the configuration file to use with the
-    server (default ./senslify.conf)
+    Arguments:
+        config_file (str): The path to the configuration file to use with the
+        server (default ./senslify.conf).
     """
     # create the application and setup the file loader
     print('Configuring jinja2 template engine...')
@@ -141,6 +152,10 @@ def build_app(config_file='./senslify/config/senslify.conf'):
     # register any shutdown handlers
     app.on_shutdown.append(database_shutdown_handler)
     app.on_shutdown.append(socket_shutdown_handler)
+
+    # initialize the service worker if necessary
+    if bool(app['config'].migration_enabled):
+        init_service_worker(int(app['config'].migration_timeout))
 
     # return the application
     return app
