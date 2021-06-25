@@ -135,7 +135,7 @@ async def message(rooms, groupid, sensorid, msg):
         print("ERROR: KeyError has occurred sending message, 'rtypeid' not found!")
         return
     # steps through all clients in the room
-    for ws, rtype in rooms[(group, sensorid)].items():
+    for ws, rtype in rooms[(groupid, sensorid)].items():
         if rtype == rtypeid:
             await ws.send_str(simplejson.dumps(resp))
 

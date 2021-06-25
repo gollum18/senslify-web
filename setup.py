@@ -35,7 +35,7 @@ VERSION = '0.1.0'
 REQUIRED = [
     "aiohttp", "jinja2", "aiohttp-jinja2", "cchardet",
     "config", "aiodns", "pymongo", "simplejson",
-    "markupsafe", "gevent",
+    "markupsafe", "gevent", 'pyyaml', 'random-word'
 ]
 
 # What packages are optional?

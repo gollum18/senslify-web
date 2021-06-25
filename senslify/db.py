@@ -639,9 +639,10 @@ class MongoProvider(DatabaseProvider):
                 'groupid': groupid,
                 'alias': alias
             })
-        except pymongo.errors.PyMongoError:
+        except pymongo.errors.PyMongoError as e:
+            print(e)
             return False, DBError('ERROR: There was a problem with the PyMongo driver!')
-        except Exception:
+        except Exception as e:
             return False, DBError('ERROR: An unspecified system error occurred!')
         return True, None
 
@@ -693,7 +694,7 @@ class MongoProvider(DatabaseProvider):
                 {"max": {"$max": "$sensorid"}}
             }
         ]
-        with self._conn[self._db].readings.aggregate(pipeline,
+        with self._conn[self._db].sensors.aggregate(pipeline,
             allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
             return cursor.next()
         

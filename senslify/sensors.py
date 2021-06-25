@@ -61,7 +61,7 @@ def generate_alias(words=3):
     Returns:
         (str): A string containing hyphenated plain-English words.
     '''
-    '-'.join([word_gen.get_random_word for i in range(len(words))])
+    return '-'.join([word_gen.get_random_word() for i in range(words)])
 
 
 @aiohttp_jinja2.template('sensors/info.jinja2')
@@ -150,27 +150,33 @@ async def provision_handler(request):
     if 'groupid' not in request.query:
         return generate_error('ERROR: Request must contain a \'groupid\' field!', 400)
 
+    sensor_alias = None
     try:
         groupid = int(request.query['groupid'])
         if groupid < 0: raise ValueError('ERROR: \'groupid\' must be a positive integer.')
-        sensor_alias = generate_alias()
+        sensor_alias = generate_alias().lower()
     except Exception as e:
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error(f'{str(e)}', 403)
 
+    group_inserted = False
     try:
         if not await request.app['db'].does_group_exist(groupid):
             group_inserted = True
-            group_alias = generate_alias()
-            request.app['db'].insert_group(groupid, group_alias)
+            group_alias = generate_alias().lower()
+            await request.app['db'].insert_group(groupid, group_alias)
             sensorid = 0
         else:
-            max_sensorid = int(request.app['db'].provision_sensor(groupid)['max'])
+            doc = await request.app['db'].provision_sensor(groupid)
+            max_sensorid = int(doc['max'])
             sensorid = max_sensorid + 1
-        request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
+        result, e = await request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
+        if e:
+            raise e
     except Exception as e:
+        print(e)
         if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
         else:
