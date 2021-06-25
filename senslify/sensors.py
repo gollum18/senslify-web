@@ -15,6 +15,7 @@
 
 import aiohttp, aiohttp_jinja2, asyncio
 import simplejson
+from random_word import RandomWords
 
 from datetime import datetime
 
@@ -36,7 +37,7 @@ async def info_handler(request):
     """
     # redirect to the sensors page if no sensor was provided
     if 'sensorid' not in request.query or 'groupid' not in request.query:
-        raise aiohttp.web.HTTPFound(location=request.app.router['sensors'].url_for())
+        return generate_error('ERROR: Request must contain both \'sensorid\' and \'groupid\' fields!', 400)
 
     # build the WebSocket address for the webpage
     prefix = 'wss://' if request.secure else 'ws://'
@@ -97,9 +98,9 @@ def build_info_url(request, sensor):
     This function is called primarily by the sensors_handler function to
     generate links to the sensor info page.
 
-    Keyword arguments:
-    request -- The request that wants the sensor url.
-    sensor -- The sensor to generate a url for.
+    Arguments:
+        (request): - The request that wants the sensor url.
+        (sensor): The sensor to generate a url for.
     """
     try:
         route = request.app.router['info'].url_for().with_query(
@@ -116,20 +117,74 @@ def build_info_url(request, sensor):
             return generate_error('ERROR: Internal server issue occurred!', 403)
 
 
+word_gen = RandomWords()
+def generate_alias(words=3):
+    '-'.join([word_gen.get_random_word for i in range(len(words))])
+
+
+async def provision_handler(request):
+    """Defines a GET endpoint for provisioning wireless sensors with the system.
+
+    Arguments:
+        (request): An aiohttp.web.Request object where GET parameters include at 
+        least a \'groupid\'.
+
+    Returns:
+        (aiohttp.web.Response): A Response object where the body is a stringified
+        JSON object containing the wireless sensors sensor identifier as well as
+        the alias.
+    """
+    if 'groupid' not in request.query:
+        return generate_error('ERROR: Request must contain a \'groupid\' field!', 400)
+
+    try:
+        groupid = int(request.query['groupid'])
+        if groupid < 0: raise ValueError('ERROR: \'groupid\' must be a positive integer.')
+        sensor_alias = generate_alias()
+    except Exception as e:
+        if request.app['config'].debug:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error(f'{str(e)}', 403)
+
+    try:
+        if not await request.app['db'].does_group_exist(groupid):
+            group_inserted = True
+            group_alias = generate_alias()
+            request.app['db'].insert_group(groupid, group_alias)
+            sensorid = 0
+        else:
+            max_sensorid = int(request.app['db'].provision_sensor(groupid)['max'])
+            sensorid = max_sensorid + 1
+        request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
+    except Exception as e:
+        if request.app['config'].debug:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error('ERROR: An error has occurred with the database!', 403)
+    resp = dict()
+    resp['sensorid'] = sensorid
+    resp['sensor_alias'] = sensor_alias
+    if group_inserted:
+        resp['group_alias'] = group_alias
+    return aiohttp.web.Response(text=simplejson.dumps(resp), status=200)
+
+
 @aiohttp_jinja2.template('sensors/sensors.jinja2')
 async def sensors_handler(request):
     """Defines a GET endpoint for the sensors listing page.
 
-    Keyword arguments:
-    request -- A aiohttp.web.Request object.
+    Arguments:
+        (request): An aiohttp.web.Request object.
     """
     # redirect to the index page if no group was provided
-    if 'groupid' not in request.query:
-        raise aiohttp.web.HTTPFound(location=request.app.router['index'].url_for())
-    group = -1
+    if 'groupid' not in request.query or 'alias' not in request.query:
+        return generate_error('ERROR: Request must contain a \'groupid\' and an \'alias\' field!', 400)
+    
     sensors = []
     try:
         groupid = int(request.query['groupid'])
+        alias = request.query['alias']
         async for sensor in request.app['db'].get_sensors(groupid):
             url = build_info_url(request, sensor)
             # if there was an error building the info url, return the error page
@@ -147,7 +202,7 @@ async def sensors_handler(request):
         return generate_error("ERROR: No sensors found for given group!", 403)
     else:
         return {
-            'title': f'Sensors for group {groupid}',
+            'title': f'Sensors for group \'{alias}\'',
             'sensors': sensors
         }
 
@@ -155,8 +210,8 @@ async def sensors_handler(request):
 async def upload_handler(request):
     """Defines a POST endpoint for uploading sensor data.
 
-    Keyword arguments:
-    request -- A aiohttp.web.Request object.
+    Arguments:
+        (request) A aiohttp.web.Request object.
     """
     doc = simplejson.loads(await request.text())
     # TODO: Perform verification on the data passed to the handler

@@ -131,9 +131,13 @@ def verify_reading(reading):
         return False
 
     # ensure they are in the correct range
-    if sensorid < 0: return False
-    if groupid < 0: return False
-    if rtypeid < 0: return False
-    if ts < 0: return False
+    if sensorid < 0: 
+        return False
+    if groupid < 0: 
+        return False
+    if rtypeid < 0: 
+        return False
+    if ts < 0: 
+        return False
 
     return True

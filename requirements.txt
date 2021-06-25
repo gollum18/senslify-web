@@ -9,3 +9,5 @@ pymongo
 simplejson
 gevent
 sphinx
+pyyaml
+random-word

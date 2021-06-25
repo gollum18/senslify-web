@@ -31,7 +31,8 @@ def build_sensors_url(request, group):
     try:
         route = request.app.router['sensors'].url_for().with_query(
             {
-                'groupid': group['groupid']
+                'groupid': group['groupid'],
+                'alias': group['alias']
             }
         )
         return route

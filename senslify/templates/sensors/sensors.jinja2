@@ -10,11 +10,10 @@
     <ul id="sensor_list">
     {% for sensor in sensors %}
         <li>
-            <a href="{{ sensor.url }}" 
-               alt="Sensor: {{ sensor.sensorid }}">
-                Sensor: {{ sensor.sensorid }}
+            <a href="{{ sensor.url }}" alt="Sensor: {{ sensor.alias }}">
+                Sensor: {{ sensor.alias }}
             </a>
-        <li>
+        </li>
     {% endfor %}
     </ul>
 {% endblock %}

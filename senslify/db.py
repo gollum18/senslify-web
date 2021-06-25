@@ -529,27 +529,33 @@ class MongoProvider(DatabaseProvider):
                 for doc in cursor:
                     yield doc
         except pymongo.errors.PyMongoError:
-            raise DBError()
+            raise DBError('ERROR: There was a problem with the PyMongo driver!')
         except Exception:
-            raise DBError()
+            raise DBError('ERROR: An unspecified system error occurred!')
 
 
-    async def insert_group(self, groupid):
+    async def insert_group(self, groupid, alias):
         """ Inserts a group into the database.
 
         Args:
             groupid (int): The id of the group.
+            alias (str): The human readable alias for the group.
         """
         if not self._open:
             raise DBError('Cannot insert group, database connection not open!')
         groupid = int(groupid)
         try:
             if not await self.does_group_exist(groupid):
-                self._conn[self._db].groups.insert_one({"groupid": groupid})
+                self._conn[self._db].groups.insert_one(
+                    {
+                        "groupid": groupid,
+                        "alias": alias
+                    }
+                )
         except pymongo.errors.PyMongoError:
-            raise DBError()
+            raise DBError('ERROR: There was a problem with the PyMongo driver!')
         except Exception:
-            raise DBError()
+            raise DBError('ERROR: An unspecified system error occurred!')
 
 
     async def insert_reading(self, reading):
@@ -580,9 +586,9 @@ class MongoProvider(DatabaseProvider):
             # insert the reading into the database
             self._conn[self._db].readings.insert_one(reading)
         except pymongo.errors.PyMongoError:
-            return False, DBError()
+            return False, DBError('ERROR: There was a problem with the PyMongo driver!')
         except Exception:
-            return False, DBError()
+            return False, DBError('ERROR: An unspecified system error occurred!')
         return True, None
 
 
@@ -605,30 +611,32 @@ class MongoProvider(DatabaseProvider):
                 self._conn[self._db].readings.insert_many(readings[index:index+step])
                 index += step
         except pymongo.errors.PyMongoError:
-            return False, DBError()
+            return False, DBError('ERROR: There was a problem with the PyMongo driver!')
         except Exception:
-            return False, DBError()
+            return False, DBError('ERROR: An unspecified system error occurred!')
         return True, None
 
 
-    async def insert_sensor(self, sensorid, groupid):
+    async def insert_sensor(self, sensorid, groupid, alias):
         """Inserts a sensorboard into the database.
 
         Args:
             sensorid (int): The id assigned to the sensorboard.
             groupid (int): The id of the group the sensorboard belongs to.
+            alias (str): The alias of the sensor.
         """
         if not self._open:
             raise DBError('Cannot insert sensor, database connection not open!')
         try:
             self._conn[self._db].sensors.insert_one({
                 'sensorid': sensorid,
-                'groupid': groupid
+                'groupid': groupid,
+                'alias': alias
             })
         except pymongo.errors.PyMongoError:
-            return False, DBError()
+            return False, DBError('ERROR: There was a problem with the PyMongo driver!')
         except Exception:
-            return False, DBError()
+            return False, DBError('ERROR: An unspecified system error occurred!')
         return True, None
 
 
@@ -648,9 +656,35 @@ class MongoProvider(DatabaseProvider):
                     )
                 self._open = True
             except pymongo.errors.PyMongoError:
-                print('ERROR: Cannot continue, there was a problem opening the database connection!\n{}'.format(str(e)))
-                raise DBError()
+                raise DBError('ERROR: Cannot continue, there was a problem opening the database connection!\n{}'.format(str(e)))
 
+
+    async def provision_sensor(self, groupid):
+        if not self._open:
+            raise DBError('Cannot retrieve stats for sensor, database connection not open!')
+        groupid = int(groupid)
+        pipeline = [
+            # filter by sensorid, groupid, and rtypeid
+            #   these are all indexed so this should be fast
+            {"$match": {
+                    "$and": [{
+                        "groupid": {"$eq": groupid}
+                    }]
+                }
+            },
+            # optimization step - sort descending by sensor identifier
+            {"$sort":
+                {"sensorid": -1}
+            },
+            # project just the max sensorid
+            {"$project": 
+                {"max": {"$max": "$sensorid"}}
+            }
+        ]
+        with self._conn[self._db].readings.aggregate(pipeline,
+            allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
+            return cursor.next()
+        
 
     async def stats_group(self, groupid, rtypeid, start_ts, end_ts):
         """Returns the stats for an entire group of sensors.
@@ -667,7 +701,7 @@ class MongoProvider(DatabaseProvider):
             (generator): A Python generator over the stats from the database.
         """
         # bail if we arent connected to the database
-        if not self._open():
+        if not self._open:
             raise DBError('Cannot retrieve stats for sensor, database connection not open!')
         # build the pipeline
         pipeline = [
@@ -695,8 +729,8 @@ class MongoProvider(DatabaseProvider):
         try:
             with self._conn[self._db].readings.aggregate(pipeline,
                     allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                for doc in cursor:
-                    yield doc
+                # the above project should only return a single document
+                return cursor.next()
         except Exception:
             raise DBError()
 
