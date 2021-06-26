@@ -32,12 +32,8 @@ from senslify.errors import DBError, traceback_str
 # import the various route handlers
 from senslify.index import index_handler
 from senslify.rest import rest_handler
-from senslify.sensors import (
-    info_handler, provision_handler, sensors_handler, upload_handler
-)
-from senslify.sockets import (
-    socket_shutdown_handler, ws_handler
-)
+from senslify.sensors import info_handler, sensors_handler
+from senslify.sockets import socket_shutdown_handler, ws_handler
 
 # import the filters module, import filters on an as needed basis
 import senslify.filters
@@ -144,10 +140,8 @@ def build_app(config_file='./senslify/config/senslify.conf'):
     app.router.add_route('GET', '/', index_handler)
     app.router.add_route('GET', '/sensors', sensors_handler)
     app.router.add_route('GET', '/sensors/info', info_handler)
-    app.router.add_route('GET', '/sensors/provision', provision_handler)
-    app.router.add_route('POST', '/sensors/upload', upload_handler)
     app.router.add_route('GET', '/ws', ws_handler)
-    app.router.add_route('GET', '/rest', rest_handler)
+    app.router.add_route('POST', '/rest', rest_handler)
 
     # register any shutdown handlers
     app.on_shutdown.append(database_shutdown_handler)

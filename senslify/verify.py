@@ -21,7 +21,111 @@ valid_rest_cmds = ('find', 'stats')
 valid_rest_targets = ('groups', 'rtypes', 'sensors', 'readings')
 
 
-def verify_rest_request(request):
+def _verify_find_request(params):
+    if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
+    target = params['target']
+    if target != 'groups' and target != 'rtypes' and target != 'sensors' and target != 'readings':
+        return False, 'ERROR: Request parameter \'target\' must be one of \{\'groups\', \'rtypes\', \'sensors\', \'readings\'\}!'
+    if target == 'sensors':
+        if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
+        try:
+            groupid = int(params['groupid'])
+        except Exception:
+            return False, 'ERROR: A parameter is of incorrect type!'
+        if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
+    elif target == 'readings':
+        if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
+        if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
+        try:
+            groupid = int(params['groupid'])
+            sensorid = int(params['sensorid'])
+        except Exception:
+            return False, 'ERROR: A parameter is on incorrect type!'
+        if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
+        if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
+
+
+def _verify_stats_request(params):
+    if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
+    if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
+    if 'rtypeid' not in params: return False, 'ERROR: Request params requires \'rtypeid\' field!'
+    if 'start_ts' not in params: return False, 'ERROR: Request params requires \'start_ts\' field!'
+    if 'end_ts' not in params: return False, 'ERROR: Request params requires \'end_ts\' field!'
+    target = params['target']
+    if target != 'groups' and target != 'sensors': 
+        return False, 'ERROR: Request parameter \'target\' must be one of \{\'groups\', \'sensors\'\}'
+    if target == 'sensors':
+        if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
+    try:
+        groupid = int(params['groupid'])
+        rtypeid = int(params['rtypeid'])
+        start_ts = int(params['start_ts'])
+        end_ts = int(params['end_ts'])
+        if target == 'sensors': 
+            sensorid = int(params['sensorid'])
+            if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
+    except Exception:
+        return False, 'ERROR: A parameter is of incorrect type!'
+    if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
+    if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0!'
+    if start_ts < 0: return False, 'ERROR: Request parameter \'start_ts\' must be >= 0!'
+    if end_ts < 0: return False, 'ERROR: Request parameter \'end_ts\' must be >= 0!'
+    return True, None
+
+
+def _verify_download_request(params):
+    if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
+    if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
+    if 'start_ts' not in params: return False, 'ERROR: Request params requires \'start_ts\' field!'
+    if 'end_ts' not in params: return False, 'ERROR: Request params requires \'end_ts\' field!'
+    try:
+        groupid = int(params['groupid'])
+        sensorid = int(params['sensorid'])
+        val = float(params['val'])
+        ts = int(params['ts'])
+    except Exception:
+        return False, 'ERROR: A parameter is of incorrect type!'
+    if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0.'
+    if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
+    if ts < 0: return False, 'ERROR: Request parameter \'ts\' must be >= 0.'
+    return True, None
+
+
+def _verify_upload_request(params):
+    if 'readings' not in params: return False, 'ERROR: Request params requires \'readings\' field!'
+    readings = params['readings']
+    for reading in readings:
+        if 'groupid' not in reading: return False, 'ERROR: Request params requires \'groupid\' field!'
+        if 'sensorid' not in reading: return False, 'ERROR: Request params requires \'sensorid\' field!'
+        if 'rtypeid' not in reading: return False, 'ERROR: Request params requires \'rtypeid\' field!'
+        if 'val' not in reading: return False, 'ERROR: Request params requires \'val\' field!'
+        if 'ts' not in reading: return False, 'ERROR: Request params requires \'ts\' field!'
+        try:
+            groupid = int(reading['groupid'])
+            sensorid = int(reading['sensorid'])
+            rtypeid = int(reading['rtypeid'])
+            val = float(reading['val'])
+            ts = int(reading['ts'])
+        except Exception:
+            return False, 'ERROR: A parameter is of incorrect type!'
+        if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0.'
+        if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
+        if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0.'
+        if ts < 0: return False, 'ERROR: Request parameter \'ts\' must be >= 0.'
+    return True, None
+
+
+def _verify_provision_request(params):
+    if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
+    try:
+        groupid = int(params['groupid'])
+    except Exception:
+        return False
+    if groupid < 0: return False, 'ERROR: Request paramters \'groupid\' must be >= 0!'
+    return True, None
+
+
+async def verify_rest_request(request):
     """Determines if a rest request is valid.
 
     Arguments:
@@ -30,114 +134,20 @@ def verify_rest_request(request):
     Returns:
         A tuple containing (boolean, str) indicating the whether the REST request is valid as well as a status string.
     """
-    # verify that all components are necessary
-    if 'cmd' not in request.query or request.query['cmd'] is None:
-        return False
-    if 'target' not in request.query or request.query['target'] is None:
-        return False
-
-    target = request.query['target']
-    if target == 'sensors' or target == 'readings':
-        if 'params' not in request.query or request.query['params'] is None:
-            return False
-
-    # get the cmd and target
-    cmd = request.query['cmd']
-    target = request.query['target']
-
-    # check that the cmd is valid
-    global valid_rest_cmds
-    if cmd not in valid_rest_cmds:
-        return False, '\'{}\' is not a valid cmd!'.format(cmd)
-
-    # check that the target is valid
-    global valid_rest_targets
-    if target not in valid_rest_targets:
-        return False, '\'{}\' is not a valid target!'.format(target)
-
-    # stats can be called on groups or sensors with finer granularity
-    if cmd == 'stats' and target != 'groups' and target != 'sensors':
-        return False, '\'stats\' cmd can only be called on the \'readings\' target!'
-
-    # no need to check the parameters if the target is not sensors or readings
-    if target != 'sensors' and target != 'readings':
-        return True, ''
-
-    # check that the rest parameters are ok
-    if not verify_rest_params(request.query['target'],
-                              simplejson.loads(request.query['params'])):
-        return False, 'Invalid \'params\' for target {}!'.format(target)
-
-    # done checking
-    return True, ''
-
-
-def verify_rest_params(target, params):
-    """Verifies the parameters of a REST request.
-
-    Args:
-        target (str): The target of the REST request.
-        params (dict): A dictionary containing params corresponding to the target.
-
-    Returns:
-        (boolean): Whether the REST params are valid.
-    """
-    # groupid is required regardless
-    if 'groupid' not in params:
-        return False
-
-    # additionally, sensorid is required for sensors
-    if target == 'sensors':
-        if 'sensorid' not in params:
-            return False
-
-    return True
-
-
-def verify_reading(reading):
-    """Determines if a reading is in the correct format.
-    This method does not verify that keys are correct.
-
-    Args:
-        reading (dict): The reading to verify.
-
-    Returns:
-        True if the reading is valid, False otherwise.
-    """
-    # make sure the reading type is a dictionary
-    if type(reading) is not dict:
-        return False
-
-    # check that all the required fields are present
-    if 'sensorid' not in reading:
-        return False
-    if 'groupid' not in reading:
-        return False
-    if 'rtypeid' not in reading:
-        return False
-    if 'ts' not in reading:
-        return False
-    if 'val' not in reading:
-        return False
-
-    # ensure they are the correct type
-    try:
-        sensorid = int(reading['sensorid'])
-        groupid = int(reading['groupid'])
-        rtypeid = int(reading['rtypeid'])
-        ts = int(reading['ts'])
-        val = float(reading['val'])
-    except Exception:
-        return False
-
-    # ensure they are in the correct range
-    if sensorid < 0: 
-        return False
-    if groupid < 0: 
-        return False
-    if rtypeid < 0: 
-        return False
-    if ts < 0: 
-        return False
-
-    return True
+    json = await request.json()
+    # check if the command and parameters are present
+    if 'cmd' not in json: return False, 'ERROR: Request requires \'cmd\' field!'
+    if 'params' not in json: return False, 'ERROR: Request requires \'params\' field!'
+    cmd = json['cmd']
+    params = json['params']
+    if cmd == 'find':
+        return _verify_find_request(params)
+    elif cmd == 'stats':
+        return _verify_stats_request(params)
+    elif cmd == 'download':
+        return _verify_download_request(params)
+    elif cmd == 'upload':
+        return _verify_upload_request(params)
+    elif cmd == 'provision':
+        return _verify_provision_request(params)
+    else: return False, 'ERROR: \'cmd\' must be one of \{\'find\', \'stats\', \'download\', \'upload\', \'provision\'\}!'

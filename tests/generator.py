@@ -21,8 +21,14 @@ groupid = int(args.groupid)
 rtypeid = int(args.rtypeid)
 ip_addr = args.ip_addr
 
-# send a provisioning request joining group 0
-resp = requests.get(ip_addr + '/sensors/provision', params={'groupid': 0})
+# send a provisioning request joining group groupid
+json_rqst = simplejson.dumps({
+    'cmd': 'provision',
+    'params': {
+        'groupid': groupid
+    }
+})
+resp = requests.post(ip_addr + '/rest', data=json_rqst)
 if resp.status_code == 403:
     print(resp.text)
     sys.exit(1)
@@ -38,12 +44,19 @@ print(f'Sensor Alias: {sensor_alias}')
 # repeatedly generate and upload sensor data per the given interval
 while True:
     data = random.uniform(min_val, max_val)
-    json = simplejson.dumps({
-        'sensorid': sensorid,
-        'groupid': groupid,
-        'rtypeid': rtypeid,
-        'ts': int(datetime.datetime.now().replace(tzinfo=datetime.timezone.utc).timestamp()),
-        'val': data
+    json_resp = simplejson.dumps({
+        'cmd': 'upload',
+        'params':{
+            'readings': [
+                {
+                    'sensorid': sensorid,
+                    'groupid': groupid,
+                    'rtypeid': rtypeid,
+                    'ts': int(datetime.datetime.now().replace(tzinfo=datetime.timezone.utc).timestamp()),
+                    'val': data
+                }
+            ]
+        }
     })
-    requests.post(ip_addr + '/sensors/upload', data=json)
+    requests.post(ip_addr + '/rest', data=json_resp)
     time.sleep(interval)

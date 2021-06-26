@@ -35,7 +35,6 @@
 import bson, pymongo, sys
 from contextlib import contextmanager
 from senslify.errors import DBError
-from senslify.verify import verify_reading
 
 
 async def database_shutdown_handler(app):
@@ -564,40 +563,6 @@ class MongoProvider(DatabaseProvider):
             raise DBError('ERROR: An unspecified system error occurred!')
 
 
-    async def insert_reading(self, reading):
-        """Inserts a single reading into the database.
-
-        Args:
-            reading (dict): The reading to insert into the database.
-        """
-        if not self._open:
-            raise DBError('Cannot insert reading, database connection not open!')
-        # FIX: The verify operation is now performed in the upload handler
-        try:
-            # remove the command if necessary
-            if "cmd" in reading:
-                del reading['cmd']
-            sensorid = int(reading['sensorid'])
-            groupid = int(reading['groupid'])
-            rtypeid = int(reading['rtypeid'])
-            # insert the sensor if it does not exist
-            if not await self.does_sensor_exist(sensorid, groupid):
-                await self.insert_sensor(sensorid, groupid)
-            if not await self.does_group_exist(groupid):
-                await self.insert_group(groupid)
-            # make sure that the rtype exists, exit otherwise
-            if not await self.does_rtype_exist(rtypeid):
-                print('rtype:', rtypeid, 'not found in database!')
-                return
-            # insert the reading into the database
-            self._conn[self._db].readings.insert_one(reading)
-        except pymongo.errors.PyMongoError:
-            return False, DBError('ERROR: There was a problem with the PyMongo driver!')
-        except Exception:
-            return False, DBError('ERROR: An unspecified system error occurred!')
-        return True, None
-
-
     async def insert_readings(self, readings, batch_size=DatabaseProvider.BATCH_SIZE):
         """Inserts multiple readings into the database.
 
@@ -607,8 +572,6 @@ class MongoProvider(DatabaseProvider):
         """
         if not self._open:
             raise DBError('Cannot insert readings, database connection not open!')
-        if not map(verify_reading, readings):
-            return False, None
         try:
             index = 0
             lim = len(readings)

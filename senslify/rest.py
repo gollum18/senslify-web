@@ -20,17 +20,64 @@
 
 import aiohttp
 import simplejson
+from random_word import RandomWords
 
 from senslify.errors import generate_error, traceback_str
+from senslify.filters import filter_reading
+from senslify.sockets import message
 from senslify.verify import verify_rest_request
 
 
-async def find_handler(request, target, params):
+word_gen = RandomWords()
+def generate_alias(n=3):
+    '''Returns an n-word plain-English alias separated by hyphens.
+
+    Arguments:
+        n (int): The number of words in the alias (default: 3).
+
+    Returns:
+        (str): A string containing hyphenated plain-English words.
+    '''
+    words = [word_gen.get_random_word() for i in range(n)]
+    alias = '-'.join(words)
+    return alias
+
+
+async def _download_handler(request, params):
+    """Defines a handler for the download target.
+
+    Args:
+        request (aiohttp.web.Request): The request that initiated the REST handler.
+        params (dict): A dictionary containing parameters for the target.
+
+    Returns:
+        (aiohttp.web.Response) A Response object containing the results of
+        executing the downloads_handler as a serialized JSON object in its body.
+        Statistics are keyed via the 'download' key.
+    """
+    # validation is performed in the rest dispatching method
+    try:
+        sensorid = int(params['sensorid'])
+        groupid = int(params['groupid'])
+        start_ts = int(params['start_ts'])
+        end_ts = int(params['end_ts'])
+        resp_body = dict()
+        # call the appropriate db handler based on target
+        resp_body['readings'] = await request.db.get_readings_by_period(sensorid, groupid, start_ts, end_ts)
+    except Exception as e:
+        if request.app.config['debug']:
+            return aiohttp.web.Response(traceback_str(e), 403)
+        else:
+            return aiohttp.web.Response('ERROR: Unable to understand target/parameters!', 403)
+    # the standard return - if we got here, then everything went ok
+    return aiohttp.web.Response(body=simplejson.dumps(resp_body))
+
+
+async def _find_handler(request, params):
     """Defines a handler for the find target.
 
     Args:
         request (aiohttp.web.Request): The request that initiated the REST handler.
-        target (str): The target to initiate the find command against.
         params (dict): A dictionary containing parameters for the target.
 
     Returns:
@@ -42,6 +89,7 @@ async def find_handler(request, target, params):
     docs = []
 
     try:
+        target = params['target']
         # target handler for groups
         if target == 'groups':
             for doc in request.app['db'].get_groups():
@@ -64,7 +112,7 @@ async def find_handler(request, target, params):
         if request.app.config['debug']:
             return generate_error(traceback_str(e), 403)
         else:
-            return generate_error('ERROR: There was an issue understanding target/params!', 403)
+            return generate_error('ERROR: There was an issue understanding your request!', 403)
 
     # build and return the response
     resp_body = []
@@ -72,12 +120,11 @@ async def find_handler(request, target, params):
     return aiohttp.web.Response(body=simplejson.dumps(resp_body))
 
 
-async def stats_handler(request, target, params):
+async def _stats_handler(request, params):
     """Defines a handler for the stats target.
 
     Args:
         request (aiohttp.web.Request): The request that initiated the REST handler.
-        target (str): The target to initiate the stats command against.
         params (dict): A dictionary containing parameters for the target.
 
     Returns:
@@ -86,58 +133,96 @@ async def stats_handler(request, target, params):
         Statistics are keyed via the 'stats' key.
     """
     # validation is performed in the rest dispatching method
+    target = params['target']
+    groupid = int(params['groupid'])
+    rtypeid = int(params['rtypeid'])
+    start_ts = int(params['start_ts'])
+    end_ts = int(params['end_ts'])
+    resp_body = dict()
+    # call the appropriate db handler based on target
     try:
-        groupid = int(params['groupid'])
-        rtypeid = int(params['rtypeid'])
-        start_date = int(params['start_date'])
-        end_date = int(params['end_date'])
-        resp_body = dict()
-        # call the appropriate db handler based on target
         if target == 'groups':
-            resp_body['stats'] = await request.db.stats_group(groupid, rtypeid, start_date, end_date)
+            resp_body['stats'] = await request.db.stats_group(groupid, rtypeid, start_ts, end_ts)
         elif target == 'sensors':
             sensorid = int(params['sensorid'])
-            resp_body['stats'] = await request.db.stats_sensor(sensorid, groupid, rtypeid, start_date, end_date)
-        else: # returned when the target is incorrect
-            return aiohttp.web.Response()
+            resp_body['stats'] = await request.db.stats_sensor(sensorid, groupid, rtypeid, start_ts, end_ts)
     except Exception as e:
         if request.app.config['debug']:
-            return aiohttp.web.Response(traceback_str(e), 403)
+            return generate_error(traceback_str(e), 403)
         else:
-            return aiohttp.web.Response('ERROR: Unable to understand target/parameters!', 403)
+            return generate_error('ERROR: There was an issue understanding your request!', 403)
     # the standard return - if we got here, then everything went ok
     return aiohttp.web.Response(body=simplejson.dumps(resp_body))
 
 
-async def download_handler(request, target, params):
-    """Defines a handler for the download target.
+async def _provision_handler(request, params):
+    """Defines a GET endpoint for provisioning wireless sensors with the system.
 
-    Args:
-        request (aiohttp.web.Request): The request that initiated the REST handler.
-        target (str): The target to initiate the download command against.
-        params (dict): A dictionary containing parameters for the target.
+    Arguments:
+        (request): An aiohttp.web.Request object where GET parameters include at 
+        least a \'groupid\'.
 
     Returns:
-        (aiohttp.web.Response) A Response object containing the results of
-        executing the downloads_handler as a serialized JSON object in its body.
-        Statistics are keyed via the 'download' key.
+        (aiohttp.web.Response): A Response object where the body is a stringified
+        JSON object containing the wireless sensors sensor identifier as well as
+        the alias.
     """
-    # validation is performed in the rest dispatching method
+    if 'groupid' not in params:
+        return generate_error('ERROR: Request must contain a \'groupid\' field!', 400)
+
+    sensor_alias = None
+    groupid = int(params['groupid'])
+    sensor_alias = generate_alias().lower()
+
+    group_inserted = False
     try:
-        sensorid = int(params['sensorid'])
-        groupid = int(params['groupid'])
-        start_date = int(params['start_date'])
-        end_date = int(params['end_date'])
-        resp_body = dict()
-        # call the appropriate db handler based on target
-        resp_body['readings'] = await request.db.get_readings_by_period(sensorid, groupid, start_date, end_date)
-    except Exception as e:
-        if request.app.config['debug']:
-            return aiohttp.web.Response(traceback_str(e), 403)
+        if not await request.app['db'].does_group_exist(groupid):
+            group_inserted = True
+            group_alias = generate_alias().lower()
+            await request.app['db'].insert_group(groupid, group_alias)
+            sensorid = 0
         else:
-            return aiohttp.web.Response('ERROR: Unable to understand target/parameters!', 403)
-    # the standard return - if we got here, then everything went ok
-    return aiohttp.web.Response(body=simplejson.dumps(resp_body))
+            doc = await request.app['db'].provision_sensor(groupid)
+            max_sensorid = int(doc['max'])
+            sensorid = max_sensorid + 1
+        result, e = await request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
+        if e:
+            raise e
+    except Exception as e:
+        if request.app['config'].debug:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error('ERROR: An error has occurred with the database!', 403)
+    resp_body = dict()
+    resp_body['sensorid'] = sensorid
+    resp_body['sensor_alias'] = sensor_alias
+    if group_inserted:
+        resp_body['group_alias'] = group_alias
+    return aiohttp.web.Response(text=simplejson.dumps(resp_body), status=200)
+
+
+async def _upload_handler(request, params):
+    """Defines a POST endpoint for uploading sensor data.
+
+    Arguments:
+        (request) A aiohttp.web.Request object.
+    """
+    try:
+        readings = params['readings']
+        # broadcast to listeners
+        for reading in readings:
+            # generate the string version of the message for output on page
+            reading['rstring'] = filter_reading(reading)
+            # send the message to the room
+            await message(request.app['rooms'], reading['groupid'], reading['sensorid'], reading)
+        # insert into database
+        await request.app['db'].insert_readings(readings)
+    except Exception as e:
+        if request.app['config'].debug:
+            return generate_error(traceback_str(e), 403)
+        else:
+            return generate_error('ERROR: An error has occurred with the database!', 403)
+    return aiohttp.web.Response(text='OK', status=200)
 
 
 async def rest_handler(request):
@@ -145,8 +230,7 @@ async def rest_handler(request):
 
     Users make requests of this handler with a query string containing the following arguments:
         cmd: The command c to execute | c E {find, stats}
-        target: The target t to run the command against | t E {groups, rtypes, sensors, readings}.
-        params: A list of key-value parameters corresponding to the targets attributes.
+        params: A list of key-value parameters corresponding to the commands attributes.
 
     This handler will return an error if the querystring is in an incorrect format.
 
@@ -154,30 +238,23 @@ async def rest_handler(request):
         request (aiohttp.web.Request): The web request that initiated the handler.
     """
     # verify the request
-    valid, reason = verify_rest_request(request)
+    valid, reason = await verify_rest_request(request)
     if not valid:
         return generate_rest_error(reason)
-
+    json = await request.json()
     # get the parameters
-    try:
-        cmd = request.query('cmd')
-        target = request.query('target')
-        params = simplejson.loads(request.query('params'))
-    except simplejson.JSONDecodeError as e:
-        if request.app.config['debug']:
-            return generate_error(traceback_str(e), 403)
-        else:
-            return generate_error('ERROR: Malformed request data!', 403)
-
+    cmd = json['cmd']
+    params = json['params']
     # pass off to the correct target handler
     if cmd == 'find':
-        response = find_handler(request, target, params)
+        response = await _find_handler(request, params)
     elif cmd == 'stats':
-        response = stats_handler(request, target, params)
+        response = await _stats_handler(request, params)
     elif cmd == 'download':
-        response = download_handler(request, target, params)
-    else:
-        response = aiohttp.request.Response(text='ERROR: Invalid command specified!', status=403)
-
+        response = await _download_handler(request, params)
+    elif cmd == 'upload':
+        response = await _upload_handler(request, params)
+    elif cmd == 'provision':
+        response = await _provision_handler(request, params)
     # return the response we get back fgrom the handler
     return response

@@ -15,14 +15,11 @@
 
 import aiohttp, aiohttp_jinja2, asyncio
 import simplejson
-from random_word import RandomWords
 
 from datetime import datetime
 
 from senslify.errors import generate_error, traceback_str
 from senslify.filters import filter_reading
-from senslify.sockets import message
-from senslify.verify import verify_reading
 
 
 def build_info_url(request, sensor):
@@ -49,19 +46,6 @@ def build_info_url(request, sensor):
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error('ERROR: Internal server issue occurred!', 403)
-
-
-word_gen = RandomWords()
-def generate_alias(words=3):
-    '''Returns an n-word plain-English alias separated by hyphens.
-
-    Arguments:
-        words (int): The number of words in the alias (default: 3).
-
-    Returns:
-        (str): A string containing hyphenated plain-English words.
-    '''
-    return '-'.join([word_gen.get_random_word() for i in range(words)])
 
 
 @aiohttp_jinja2.template('sensors/info.jinja2')
@@ -135,60 +119,6 @@ async def info_handler(request):
         }
 
 
-async def provision_handler(request):
-    """Defines a GET endpoint for provisioning wireless sensors with the system.
-
-    Arguments:
-        (request): An aiohttp.web.Request object where GET parameters include at 
-        least a \'groupid\'.
-
-    Returns:
-        (aiohttp.web.Response): A Response object where the body is a stringified
-        JSON object containing the wireless sensors sensor identifier as well as
-        the alias.
-    """
-    if 'groupid' not in request.query:
-        return generate_error('ERROR: Request must contain a \'groupid\' field!', 400)
-
-    sensor_alias = None
-    try:
-        groupid = int(request.query['groupid'])
-        if groupid < 0: raise ValueError('ERROR: \'groupid\' must be a positive integer.')
-        sensor_alias = generate_alias().lower()
-    except Exception as e:
-        if request.app['config'].debug:
-            return generate_error(traceback_str(e), 403)
-        else:
-            return generate_error(f'{str(e)}', 403)
-
-    group_inserted = False
-    try:
-        if not await request.app['db'].does_group_exist(groupid):
-            group_inserted = True
-            group_alias = generate_alias().lower()
-            await request.app['db'].insert_group(groupid, group_alias)
-            sensorid = 0
-        else:
-            doc = await request.app['db'].provision_sensor(groupid)
-            max_sensorid = int(doc['max'])
-            sensorid = max_sensorid + 1
-        result, e = await request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
-        if e:
-            raise e
-    except Exception as e:
-        print(e)
-        if request.app['config'].debug:
-            return generate_error(traceback_str(e), 403)
-        else:
-            return generate_error('ERROR: An error has occurred with the database!', 403)
-    resp = dict()
-    resp['sensorid'] = sensorid
-    resp['sensor_alias'] = sensor_alias
-    if group_inserted:
-        resp['group_alias'] = group_alias
-    return aiohttp.web.Response(text=simplejson.dumps(resp), status=200)
-
-
 @aiohttp_jinja2.template('sensors/sensors.jinja2')
 async def sensors_handler(request):
     """Defines a GET endpoint for the sensors listing page.
@@ -224,28 +154,3 @@ async def sensors_handler(request):
             'title': f'Sensors for group \'{alias}\'',
             'sensors': sensors
         }
-
-
-async def upload_handler(request):
-    """Defines a POST endpoint for uploading sensor data.
-
-    Arguments:
-        (request) A aiohttp.web.Request object.
-    """
-    doc = simplejson.loads(await request.text())
-    # TODO: Perform verification on the data passed to the handler
-    try:
-        # Only insert if reading verifies as true
-        if verify_reading(doc):
-            # insert the reading into the database
-            await request.app['db'].insert_reading(doc)
-            # generate the string version of the message for output on page
-            doc['rstring'] = filter_reading(doc)
-            # send the message to the room
-            await message(request.app['rooms'], doc['groupid'], doc['sensorid'], doc)
-    except Exception as e:
-        if request.app['config'].debug:
-            return generate_error(traceback_str(e), 403)
-        else:
-            return generate_error('ERROR: An error has occurred with the database!', 403)
-    return aiohttp.web.Response(text='OK', status=200)
