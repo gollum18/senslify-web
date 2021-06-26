@@ -171,34 +171,64 @@ async def _provision_handler(request, params):
         return generate_error('ERROR: Request must contain a \'groupid\' field!', 400)
 
     sensor_alias = None
+    target = params['target']
     groupid = int(params['groupid'])
-    sensor_alias = generate_alias().lower()
 
-    group_inserted = False
-    try:
-        if not await request.app['db'].does_group_exist(groupid):
-            group_inserted = True
-            group_alias = generate_alias().lower()
-            await request.app['db'].insert_group(groupid, group_alias)
-            sensorid = 0
+    if target == 'sensor':
+        if 'alias' in params:
+            sensor_alias = params['alias']
         else:
-            doc = await request.app['db'].provision_sensor(groupid)
-            max_sensorid = int(doc['max'])
-            sensorid = max_sensorid + 1
-        result, e = await request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
-        if e:
-            raise e
-    except Exception as e:
-        if request.app['config'].debug:
-            return generate_error(traceback_str(e), 403)
+            sensor_alias = generate_alias()
+        group_inserted = False
+        try:
+            if not await request.app['db'].does_group_exist(groupid):
+                # require that the group exists
+                return generate_error(f'ERROR: No group with identifer \'{groupid}\' exists!', 400)
+            else:
+                doc = await request.app['db'].find_max_sensorid_in_group(groupid)
+                max_sensorid = int(doc['max'])
+                sensorid = max_sensorid + 1
+            result, e = await request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
+            if e:
+                raise e
+        except Exception as e:
+            if request.app['config'].debug:
+                return generate_error(traceback_str(e), 403)
+            else:
+                return generate_error('ERROR: An error has occurred with the database!', 403)
+        resp_body = dict()
+        resp_body['sensorid'] = sensorid
+        resp_body['sensor_alias'] = sensor_alias
+        if group_inserted:
+            resp_body['group_alias'] = group_alias
+        return aiohttp.web.Response(text=simplejson.dumps(resp_body), status=200)
+    elif target == 'group':
+        if 'alias' in params:
+            group_alias = params['alias']
         else:
-            return generate_error('ERROR: An error has occurred with the database!', 403)
-    resp_body = dict()
-    resp_body['sensorid'] = sensorid
-    resp_body['sensor_alias'] = sensor_alias
-    if group_inserted:
+            group_alias = generate_alias()
+        try:
+            if await request.app['db'].does_group_exist(groupid):
+                # require that the group does not exist
+                return generate_error(f'ERROR: Group with identifer \'{groupid}\' already exists!', 400)
+            else:
+                doc = await request.app['db'].find_max_groupid(group)
+                max_groupid = int(doc['max'])
+                groupid = max_groupid + 1
+            result, e = await request.app['db'].insert_group(groupid, group_alias)
+            if e:
+                raise e
+        except Exception as e:
+            if request.app['config'].debug:
+                return generate_error(traceback_str(e), 403)
+            else:
+                return generate_error('ERROR: An error has occurred with the database!', 403)
+        resp_body = dict()
+        resp_body['groupid'] = groupid
         resp_body['group_alias'] = group_alias
-    return aiohttp.web.Response(text=simplejson.dumps(resp_body), status=200)
+        return aiohttp.web.Response(text=simplejson.dumps(resp_body), status=200)
+    else:
+        return generate_error('ERROR: Invalid \'target\' specified! Must be one of \{\'sensor\', \'group\'\}.', 400)
 
 
 async def _upload_handler(request, params):
@@ -240,7 +270,7 @@ async def rest_handler(request):
     # verify the request
     valid, reason = await verify_rest_request(request)
     if not valid:
-        return generate_rest_error(reason)
+        return generate_error(reason, 400)
     json = await request.json()
     # get the parameters
     cmd = json['cmd']

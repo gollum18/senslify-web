@@ -145,6 +145,21 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
+    async def find_max_groupid(self):
+        '''Determines the maximum groupid stored in the database.'''
+        raise NotImplementedError
+
+
+    async def find_max_sensorid_in_group(self, groupid):
+        '''Determines the maximum sensor identifier stored in the database for the 
+        specified group.
+
+        Arguments:
+            groupid (int): A group identifier that the sensor will be provisioned with.
+        '''
+        raise NotImplementedError
+
+
     async def get_groups(self):
         """Generator function used to get groups from the database."""
         raise NotImplementedError
@@ -219,16 +234,6 @@ class DatabaseProvider:
 
     def open(self):
         """Opens a connection to the backing database server."""
-        raise NotImplementedError
-
-
-    async def provision_sensor(self, groupid):
-        '''Determines the maxmimum sensor identifier stored in the database for the 
-        specified group.
-
-        Arguments:
-            groupid (int): A group identifier that the sensor will be provisioned with.
-        '''
         raise NotImplementedError
 
 
@@ -458,6 +463,57 @@ class MongoProvider(DatabaseProvider):
             raise DBError()
 
 
+    async def find_max_groupid(self):
+        '''Determines the maximum group identifier stored in the database.
+        '''
+        pipeline = [
+            # optimization step - sort descending by group identifier
+            {"$sort":
+                {"groupid": -1}
+            },
+            # project just the max sensorid
+            {"$project": 
+                {"max": {"$max": "$groupid"}}
+            }
+        ]
+        with self._conn[self._db].groups.aggregate(pipeline,
+            allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
+            return cursor.next()
+
+
+    async def find_max_sensorid_in_group(self, groupid):
+        '''Determines the maximum sensor identifier stored in the database for the 
+        specified group.
+
+        Arguments:
+            groupid (int): A group identifier that the sensor will be provisioned with.
+        '''
+        if not self._open:
+            raise DBError('Cannot retrieve stats for sensor, database connection not open!')
+        groupid = int(groupid)
+        pipeline = [
+            # filter by sensorid, groupid, and rtypeid
+            #   these are all indexed so this should be fast
+            {"$match": {
+                    "$and": [{
+                        "groupid": {"$eq": groupid}
+                    }]
+                }
+            },
+            # optimization step - sort descending by sensor identifier
+            {"$sort":
+                {"sensorid": -1}
+            },
+            # project just the max sensorid
+            {"$project": 
+                {"max": {"$max": "$sensorid"}}
+            }
+        ]
+        with self._conn[self._db].sensors.aggregate(pipeline,
+            allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
+            return cursor.next()
+
+
     async def get_groups(self):
         """Generator function used to get groups from the database.
 
@@ -627,39 +683,6 @@ class MongoProvider(DatabaseProvider):
                 self._open = True
             except pymongo.errors.PyMongoError:
                 raise DBError('ERROR: Cannot continue, there was a problem opening the database connection!\n{}'.format(str(e)))
-
-
-    async def provision_sensor(self, groupid):
-        '''Determines the maxmimum sensor identifier stored in the database for the 
-        specified group.
-
-        Arguments:
-            groupid (int): A group identifier that the sensor will be provisioned with.
-        '''
-        if not self._open:
-            raise DBError('Cannot retrieve stats for sensor, database connection not open!')
-        groupid = int(groupid)
-        pipeline = [
-            # filter by sensorid, groupid, and rtypeid
-            #   these are all indexed so this should be fast
-            {"$match": {
-                    "$and": [{
-                        "groupid": {"$eq": groupid}
-                    }]
-                }
-            },
-            # optimization step - sort descending by sensor identifier
-            {"$sort":
-                {"sensorid": -1}
-            },
-            # project just the max sensorid
-            {"$project": 
-                {"max": {"$max": "$sensorid"}}
-            }
-        ]
-        with self._conn[self._db].sensors.aggregate(pipeline,
-            allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-            return cursor.next()
         
 
     async def stats_group(self, groupid, rtypeid, start_ts, end_ts):
