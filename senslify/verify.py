@@ -116,6 +116,7 @@ def _verify_upload_request(params):
 
 
 def _verify_provision_request(params):
+    if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     try:
         groupid = int(params['groupid'])

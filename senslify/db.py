@@ -906,9 +906,7 @@ class SQLServerProvider:
             conn_str (str): The connection string for the database server.
             db (str): The name of the Senslify database.
         """
-        self._conn_str = conn_str
-        self._db = db
-        self._open = False
+        DatabaseProvider.__init__(self, conn_str, db)
 
 
     @staticmethod
