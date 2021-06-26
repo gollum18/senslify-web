@@ -885,3 +885,241 @@ class MongoProvider(DatabaseProvider):
         except Exception as e:
             print(e)
             raise DBError()
+
+
+class SQLServerProvider:
+    """Defines a provider for MS SQL Server."""
+
+    # The batch size to use when inserting
+    BATCH_SIZE = 100
+
+    # The number of documents to return in a single database call
+    DOC_LIMIT= 100
+
+
+    def __init__(self, conn_str, db):
+        """Returns an instance of a DatabaseProvider. Do not call this function.
+        All of the methods defined by the DatabaseProvider class will raise a
+        NotImplementedError when called.
+
+        Args:
+            conn_str (str): The connection string for the database server.
+            db (str): The name of the Senslify database.
+        """
+        self._conn_str = conn_str
+        self._db = db
+        self._open = False
+
+
+    @staticmethod
+    @contextmanager
+    def get_connection(conn_str, db):
+        """Gets a connection to the backing database server.
+
+        This method shall be implemented as a generator function, shall yield
+        an instance of a DatabaseProvider, and shall close the provider when
+        done.
+
+        Args:
+            conn_str (str): The connection string to the database server.
+            db (str): The name of the Senslify database.
+
+        Returns:
+            DatabaseProvider: A temporary database provider.
+        """
+        raise NotImplementedError
+
+
+    async def close(self):
+        """Closes the connection to the backing database provider."""
+        raise NotImplementedError
+
+
+    def init(self):
+        """Initializes the database with the initial table design dictated in
+        'Docs/DB.md'.
+
+        This command should either fail soft or prompt the user
+        to confirm deletion of the database if the database already exists.
+        """
+        raise NotImplementedError
+
+
+    async def does_group_exist(self, groupid):
+        """Determines if the specifiied group exists in the database.
+
+        Args:
+            groupid (int): The id of the group to check for.
+
+        Returns:
+            (boolean): True if the group exists, False otherwise.
+        """
+        raise NotImplementedError
+
+
+    async def does_rtype_exist(self, rtypeid):
+        """Determines if the specified sensor exists in the database.
+
+        Args:
+            rtypeid (int): The id of the rtype to check for.
+
+        Returns:
+            (boolean): True if the reading type exists, False otherwise.
+        """
+        raise NotImplementedError
+
+
+    async def does_sensor_exist(self, sensorid, groupid):
+        """Determines if the specified sensor exists in the database.
+
+        Args:
+            sensorid (int): The id of the sensor to check for.
+            groupid (int): The id of the group the sensor belongs to.
+
+        Returns:
+            (boolean): True if the sensor sensor exists, False otherwise.
+        """
+        raise NotImplementedError
+
+
+    async def find_max_groupid(self):
+        '''Determines the maximum groupid stored in the database.'''
+        raise NotImplementedError
+
+
+    async def find_max_sensorid_in_group(self, groupid):
+        '''Determines the maximum sensor identifier stored in the database for the 
+        specified group.
+
+        Arguments:
+            groupid (int): A group identifier that the sensor will be provisioned with.
+        '''
+        raise NotImplementedError
+
+
+    async def get_groups(self):
+        """Generator function used to get groups from the database."""
+        raise NotImplementedError
+
+
+    async def get_rtypes(self):
+        """Generator function used to get reading types from the database."""
+        raise NotImplementedError
+
+
+    async def get_sensors(self, groupid):
+        """Generator function used to get sensors from the database.
+
+        Args:
+            groupid (int): The id of the group to return sensors from.
+        """
+        raise NotImplementedError
+
+
+    async def get_readings(self, sensorid, groupid, limit=DOC_LIMIT):
+        """Generator function for retrieving readings from the database.
+
+        Args:
+            sensorid (int): The id of the sensor to return readings on.
+            groupid (int): The id of the group the sensor belongs to.
+            limit (int): The number of readings to return in a single call.
+        """
+        raise NotImplementedError
+
+
+    async def insert_group(self, groupid):
+        """Inserts a group into the database.
+
+        Args:
+            groupid (int): The id of the group.
+        """
+        raise NotImplementedError
+
+
+    async def insert_reading(self, reading):
+        """Inserts a single reading into the database.
+
+        Args:
+            reading (dict): The reading to insert into the database.
+        """
+        raise NotImplementedError
+
+
+    async def insert_readings(self, readings, batch_size=BATCH_SIZE):
+        """Inserts multiple readings into the database.
+
+        Args:
+            readings (list): A list of readings to insert into the database.
+            batch_size (int): The amount of readings to insert per batch.
+        """
+        raise NotImplementedError
+
+
+    async def insert_sensor(self, sensorid, groupid):
+        """Inserts a sensorboard into the database.
+
+        Args:
+            sensorid (int): The id assigned to the sensorboard.
+            groupid (int): The id of the group the sensorboard belongs to.
+        """
+        raise NotImplementedError
+
+
+    def is_open(self):
+        return self._open
+
+
+    def open(self):
+        """Opens a connection to the backing database server."""
+        raise NotImplementedError
+
+
+    async def stats_group(self, groupid, rtypeid, start_ts=None, end_ts=None):
+        """Returns the stats for an entire group of sensors.
+
+        Args:
+            groupid (int): The id of the group the sensor belongs to.
+            rtypeid (int): The id of the reading type to retrieve stats for.
+            start_ts (datetime.datetime): The start time that begins the range
+            for stats (default:None).
+            end_ts (datetime.datetime): The end time that ends the range for
+            stats (default: None).
+
+        Returns:
+            (generator): A Python generator over the stats from the database.
+
+        Raises:
+            (Exception): If there was a problem interacting with the database.
+        """
+        raise NotImplementedError
+
+
+    async def stats_sensor(self, sensorid, groupid, rtypeid, start_ts, end_ts):
+        """Returns the stats for a specific sensor.
+
+        Args:
+            sensorid (int): The id of the sensor to retrieve stats on.
+            groupid (int): The id of the group the sensor belongs to.
+            rtypeid (int): The id of the reading type to retrieve stats for.
+            start_date (datetime.datetime): The start time that begins the range
+            for stats.
+            end_date (datetime.datetime): The end time that ends the range for
+            stats.
+
+        Raises:
+            (Exception): If there was a problem interacting with the database.
+        """
+        raise NotImplementedError
+
+
+    async def get_readings_by_period(self, sensorid, groupid, start_ts, end_ts):
+        """Returns all of the readings for a given time period for a given
+        sensor.
+
+        Args:
+            sensorid (int): The id of the sensor to get readings for.
+            groupid (int): The id of the group the sensor belongs to.
+            start_ts (datetime.datetime): The start time period.
+            end_ts (datetime.datetime): The end time period.
+        """
+        raise NotImplementedError
