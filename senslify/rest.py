@@ -170,11 +170,11 @@ async def _provision_handler(request, params):
     if 'groupid' not in params:
         return generate_error('ERROR: Request must contain a \'groupid\' field!', 400)
 
-    sensor_alias = None
     target = params['target']
-    groupid = int(params['groupid'])
 
     if target == 'sensor':
+        sensor_alias = None
+        groupid = int(params['groupid'])
         if 'alias' in params:
             sensor_alias = params['alias']
         else:
