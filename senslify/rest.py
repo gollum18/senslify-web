@@ -38,6 +38,7 @@ def _generate_alias(n=3):
     Returns:
         (str): A string containing hyphenated plain-English words.
     '''
+    if n <= 0: n = 3
     words = [word_gen.get_random_word() for i in range(n)]
     alias = '-'.join(words)
     return alias
