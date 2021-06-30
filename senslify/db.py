@@ -653,11 +653,12 @@ class MongoProvider(DatabaseProvider):
         if not self._open:
             raise DBError('Cannot insert sensor, database connection not open!')
         try:
-            self._conn[self._db].sensors.insert_one({
-                'sensorid': sensorid,
-                'groupid': groupid,
-                'alias': alias
-            })
+            if not await self.does_sensor_exist(sensorid, groupid):
+                self._conn[self._db].sensors.insert_one({
+                    'sensorid': sensorid,
+                    'groupid': groupid,
+                    'alias': alias
+                })
         except pymongo.errors.PyMongoError as e:
             print(e)
             return False, DBError('ERROR: There was a problem with the PyMongo driver!')
