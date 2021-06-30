@@ -196,7 +196,7 @@ async def _verify_stream_command(request, params):
     return True, None
 
 
-async def verify_ws_msg(request, json):
+async def verify_ws_request(request, json):
     if 'cmd' not in json: return False, 'ERROR: Request requires \'cmd\' field!'
     cmd = json['cmd']
     if cmd == 'RQST_JOIN':

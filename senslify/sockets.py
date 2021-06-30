@@ -19,7 +19,7 @@ import simplejson
 
 from senslify.errors import DBError, generate_error
 from senslify.filters import filter_reading
-from senslify.verify import verify_ws_msg
+from senslify.verify import verify_ws_request
 
 
 #
@@ -170,7 +170,7 @@ async def ws_handler(request):
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
                 continue
-            status, reason = await verify_ws_msg(request, js)
+            status, reason = await verify_ws_request(request, js)
             if not status:
                 resp['cmd'] = 'RESP_ERROR'
                 resp['error'] = reason
