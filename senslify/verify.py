@@ -21,7 +21,7 @@ valid_rest_cmds = ('find', 'stats')
 valid_rest_targets = ('groups', 'rtypes', 'sensors', 'readings')
 
 
-def _verify_find_request(params):
+async def _verify_find_request(request, params):
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     target = params['target']
     if target != 'groups' and target != 'rtypes' and target != 'sensors' and target != 'readings':
@@ -33,6 +33,8 @@ def _verify_find_request(params):
         except Exception:
             return False, 'ERROR: A parameter is of incorrect type!'
         if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
+        if not await request.app['db'].does_group_exist(groupid):
+            return False, 'ERROR: No such group provisioned into the system!'
     elif target == 'readings':
         if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
         if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
@@ -43,9 +45,14 @@ def _verify_find_request(params):
             return False, 'ERROR: A parameter is on incorrect type!'
         if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
         if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
+        if not await request.app['db'].does_group_exist(groupid):
+            return False, 'ERROR: No such group provisioned into the system!'
+        if not await request.app['db'].does_sensor_exist(sensorid, groupid):
+            return False, 'ERROR: No such sensor provisioned into the system!'
+    return True, None
 
 
-def _verify_stats_request(params):
+async def _verify_stats_request(request, params):
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     if 'rtypeid' not in params: return False, 'ERROR: Request params requires \'rtypeid\' field!'
@@ -70,10 +77,14 @@ def _verify_stats_request(params):
     if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0!'
     if start_ts < 0: return False, 'ERROR: Request parameter \'start_ts\' must be >= 0!'
     if end_ts < 0: return False, 'ERROR: Request parameter \'end_ts\' must be >= 0!'
+    if not await request.app['db'].does_group_exist(groupid):
+        return False, 'ERROR: No such group provisioned into the system!'
+    if not await request.app['db'].does_rtype_exist(rtypeid):
+        return False, 'ERROR: No such reading type provisioned into the system!'
     return True, None
 
 
-def _verify_download_request(params):
+async def _verify_download_request(request, params):
     if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     if 'start_ts' not in params: return False, 'ERROR: Request params requires \'start_ts\' field!'
@@ -81,17 +92,22 @@ def _verify_download_request(params):
     try:
         groupid = int(params['groupid'])
         sensorid = int(params['sensorid'])
-        val = float(params['val'])
-        ts = int(params['ts'])
+        start_ts = int(params['start_ts'])
+        end_ts = int(params['end_ts'])
     except Exception:
         return False, 'ERROR: A parameter is of incorrect type!'
     if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0.'
     if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
-    if ts < 0: return False, 'ERROR: Request parameter \'ts\' must be >= 0.'
+    if start_ts < 0: return False, 'ERROR: Request parameter \'start_ts\' must be >= 0.'
+    if end_ts < 0: return False, 'ERROR: Request parameter \'start_ts\' must be >= 0.'
+    if not await request.app['db'].does_group_exist(groupid):
+        return False, 'ERROR: No such group provisioned into the system!'
+    if not await request.app['db'].does_sensor_exist(sensorid, groupid):
+        return False, 'ERROR: No such sensor provisioned into the system!'
     return True, None
 
 
-def _verify_upload_request(params):
+async def _verify_upload_request(request, params):
     if 'readings' not in params: return False, 'ERROR: Request params requires \'readings\' field!'
     readings = params['readings']
     for reading in readings:
@@ -112,10 +128,16 @@ def _verify_upload_request(params):
         if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
         if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0.'
         if ts < 0: return False, 'ERROR: Request parameter \'ts\' must be >= 0.'
+        if not await request.app['db'].does_group_exist(groupid):
+            return False, 'ERROR: No such group provisioned into the system!'
+        if not await request.app['db'].does_sensor_exist(sensorid, groupid):
+            return False, 'ERROR: No such sensor provisioned into the system!'
+        if not await request.app['db'].does_rtype_exist(rtypeid):
+            return False, 'ERROR: No such reading type provisioned into the system!'
     return True, None
 
 
-def _verify_provision_request(params):
+async def _verify_provision_request(request, params):
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     try:
@@ -123,7 +145,71 @@ def _verify_provision_request(params):
     except Exception:
         return False
     if groupid < 0: return False, 'ERROR: Request paramters \'groupid\' must be >= 0!'
+    if not await request.app['db'].does_group_exist(groupid):
+        return False, 'ERROR: No such group provisioned into the system!'
     return True, None
+
+
+async def _verify_join_command(request, params):
+    if 'groupid' not in params: return False, 'ERROR: Request requires \'groupid\' field!'
+    if 'sensorid' not in params: return False, 'ERROR: Request requires \'sensorid\' field!'
+    try:
+        groupid = int(params['groupid'])
+        sensorid = int(params['sensorid'])
+    except Exception:
+        return False, 'ERROR: A parameter is of incorrect type!'
+    if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0.'
+    if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
+    if not await request.app['db'].does_group_exist(groupid):
+        return False, 'ERROR: No such group provisioned into the system!'
+    if not await request.app['db'].does_sensor_exist(sensorid, groupid):
+        return False, 'ERROR: No such sensor provisioned into the system!'
+    return True, None
+
+
+async def _verify_close_command(request, params):
+    if 'groupid' not in params: return False, 'ERROR: Request requires \'groupid\' field!'
+    if 'sensorid' not in params: return False, 'ERROR: Request requires \'sensorid\' field!'
+    try:
+        groupid = int(params['groupid'])
+        sensorid = int(params['sensorid'])
+    except Exception:
+        return False, 'ERROR: A parameter is of incorrect type!'
+    if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0.'
+    if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
+    if not await request.app['db'].does_group_exist(groupid):
+        return False, 'ERROR: No such group provisioned into the system!'
+    if not await request.app['db'].does_sensor_exist(sensorid, groupid):
+        return False, 'ERROR: No such sensor provisioned into the system!'
+    return True, None
+
+
+async def _verify_stream_command(request, params):
+    if 'rtypeid' not in params: return False, 'ERROR: Request requires \'rtypeid\' field!'
+    try:
+        rtypeid = int(params['rtypeid'])
+    except Exception:
+        return False, 'ERROR: A parameter is of incorrect type!'
+    if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0'
+    if not await request.app['db'].does_rtype_exist(rtypeid):
+        return False, 'ERROR: No such reading type provisioned into the system!'
+    return True, None
+
+
+async def verify_ws_msg(request, json):
+    if 'cmd' not in json: return False, 'ERROR: Request requires \'cmd\' field!'
+    cmd = json['cmd']
+    if cmd == 'RQST_JOIN':
+        return await _verify_join_command(request, json)
+    elif cmd == 'RQST_CLOSE':
+        return await _verify_close_command(request, json)
+    elif cmd == 'RQST_STREAM':
+        return await _verify_stream_command(request, json)
+    elif cmd == 'RQST_SENSOR_STATS':
+        return await _verify_stats_request(request, json)
+    elif cmd == 'RQST_DOWNLOAD':
+        return await _verify_download_request(request, json)
+    else: return False, 'ERROR: \'cmd\' must be one of \{\'RQST_JOIN\', \'RQST_CLOSE\', \'RQST_STREAM\', \'RQST_SENSOR_STATS\', \'RQST_DOWNLOAD\'\}!'
 
 
 async def verify_rest_request(request):
@@ -142,13 +228,13 @@ async def verify_rest_request(request):
     cmd = json['cmd']
     params = json['params']
     if cmd == 'find':
-        return _verify_find_request(params)
+        return await _verify_find_request(request, params)
     elif cmd == 'stats':
-        return _verify_stats_request(params)
+        return await _verify_stats_request(request, params)
     elif cmd == 'download':
-        return _verify_download_request(params)
+        return await _verify_download_request(request, params)
     elif cmd == 'upload':
-        return _verify_upload_request(params)
+        return await _verify_upload_request(request, params)
     elif cmd == 'provision':
-        return _verify_provision_request(params)
+        return await _verify_provision_request(request, params)
     else: return False, 'ERROR: \'cmd\' must be one of \{\'find\', \'stats\', \'download\', \'upload\', \'provision\'\}!'

@@ -17,8 +17,9 @@
 import aiohttp
 import simplejson
 
-from senslify.errors import DBError
+from senslify.errors import DBError, generate_error
 from senslify.filters import filter_reading
+from senslify.verify import verify_ws_msg
 
 
 #
@@ -147,16 +148,13 @@ async def ws_handler(request):
     Args:
         request (aiohttp.web.Request): The request that initiated the WebSocket connection.
     """
-    sensorid = 0
-
     ws = None
     try:
         ws = aiohttp.web.WebSocketResponse(autoclose=False)
         await ws.prepare(request)
     except aiohttp.web.WSServerHandshakeError:
-        raise aiohttp.web.HTTPFound(request.app.router['index'].url_for())
+        return generate_error('ERROR: Unable to establish WebSocket, handshake failed!', 400)
 
-    # TODO: There needs to be guards in the casting here
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
             # decode the received message
@@ -169,66 +167,38 @@ async def ws_handler(request):
             except simplejson.JSONDecodeError:
                 resp['cmd'] = 'RESP_ERROR'
                 resp['error'] = 'ERROR: Request is not a properly formed JSON message!'
-            if resp['cmd'] == 'RESP_ERROR':
+                # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
                 continue
-            
-            if not js:
+            status, reason = await verify_ws_msg(request, js)
+            if not status:
                 resp['cmd'] = 'RESP_ERROR'
-                resp['error'] = 'ERROR: No request was found!'
-            if resp['cmd'] == 'RESP_ERROR':
-                await ws.send_str(simplejson.dumps(resp))
-                continue
-            
-            # make sure the cmd, groupid and sensorid fields are present, they are
-            #   required for command execution
-            if 'cmd' not in js or 'groupid' not in js or 'sensorid' not in js:
-                resp['cmd'] = 'RESP_ERROR'
-                resp['error'] = 'ERROR: Request requires the \'cmd\', \'groupid\' and \'sensorid\' fields!'
-            if resp['cmd'] == 'RESP_ERROR':
+                resp['error'] = reason
                 await ws.send_str(simplejson.dumps(resp))
                 continue
             cmd = js['cmd']
-            try:
-                groupid = int(js['groupid'])
-                sensorid = int(js['sensorid'])
-            except Exception:
-                resp['cmd'] = 'RESP_ERROR'
-                resp['error'] = 'ERROR: \'groupid\' and \'sensorid\' must be integer numeric types.'
-            if resp['cmd'] == 'RESP_ERROR':
-                await ws.send_str(simplejson.dumps(resp))
-                continue
-
+            # 
             # adds the requesting websocket as a receiver for messages from
             #   the indicated sensor
             if cmd == 'RQST_JOIN':
+                sensorid = int(js['sensorid'])
+                groupid = int(js['groupid'])
                 result = await _join(request.app['rooms'], groupid, sensorid, ws)
                 resp['cmd'] = 'RESP_JOIN'
                 resp['join_status'] = result
                 await ws.send_str(simplejson.dumps(resp))
             # close the connection if the client requested it
             elif cmd == 'RQST_CLOSE':
+                sensorid = int(js['sensorid'])
+                groupid = int(js['groupid'])
                 await _leave(request.app['rooms'], groupid, sensorid, ws)
                 await ws.close()
                 break
             # handle requests from users to switch to a different reading type
             elif cmd == 'RQST_STREAM':
-                # perform verification checks
-                if 'rtypeid' not in js:
-                    resp['cmd'] = 'RESP_ERROR'
-                    resp['error'] = 'ERROR: Request requires the \'rtypeid\' field.'
-                if resp['cmd'] == 'RESP_ERROR':
-                    await ws.send_str(simplejson.dumps(resp))
-                    continue
-                # get request info
-                try:
-                    rtypeid = int(js['rtypeid'])
-                except Exception:
-                    resp['cmd'] = 'RESP_ERROR'
-                    resp['error'] = 'ERROR: \'rtypeid\' must be an integer numeric type.'
-                if resp['cmd'] == 'RESP_ERROR':
-                    await ws.send_str(simplejson.dumps(resp))
-                    continue
+                sensorid = int(js['sensorid'])
+                groupid = int(js['groupid'])
+                rtypeid = int(js['rtypeid'])
                 # change the stream
                 await _change_stream(request.app['rooms'], groupid, sensorid, ws, rtypeid)
                 # construct a response containing the top 100 readings for the stream
@@ -241,7 +211,6 @@ async def ws_handler(request):
                 except DBError:
                     resp['cmd'] = 'RESP_ERROR'
                     resp['error'] = 'ERROR: There was an issue retrieving the top 100 readings for the new reading type from the database!'
-                if resp['cmd'] == 'RESP_ERROR':
                     await ws.send_str(simplejson.dumps(resp))
                     continue
                 resp['readings'] = readings
@@ -249,61 +218,31 @@ async def ws_handler(request):
                 await ws.send_str(simplejson.dumps(resp))
             # handle requests for getting stats on sensors
             elif cmd == 'RQST_SENSOR_STATS':
+                sensorid = int(js['sensorid'])
+                groupid = int(js['groupid'])
+                rtypeid = int(js['rtypeid'])
+                start_ts = int(js['start_ts'])
+                end_ts = int(js['end_ts'])
                 resp['cmd'] = 'RESP_SENSOR_STATS'
-                # perform verification checks
-                if ('rtypeid' not in js or
-                        'start_date' not in js or
-                        'end_date' not in js):
-                    resp['cmd'] = 'RESP_STATS_ERROR'
-                    resp['error'] = 'ERROR: Request requires the \'rtypeid\', \'start_date\', and \'end_date\' fields.'
-                if resp['cmd'] == 'RESP_STATS_ERROR':
-                    await ws.send_str(simplejson.dumps(resp))
-                    continue
-                # get request info
-                try:
-                    rtypeid = int(js['rtypeid'])
-                    start_date = int(js['start_date'])
-                    end_date = int(js['end_date'])
-                except Exception:
-                    resp['cmd'] = 'RESP_STATS_ERROR'
-                    resp['error'] = 'ERROR: \'rtypeid\', \'start_date\', and \'end_date\' must be integer numeric types!'
-                if resp['cmd'] == 'RESP_STATS_ERROR':
-                    await ws.send_str(simplejson.dumps(resp))
-                    continue
                 # get stats info from the database
                 try:
                     resp['stats'] = await request.app['db'].stats_sensor(sensorid,
-                        groupid, rtypeid, start_date, end_date)
+                        groupid, rtypeid, start_ts, end_ts)
                 except DBError:
                     resp['cmd'] = 'RESP_STATS_ERROR'
                     resp['error'] = 'ERROR: Cannot retrieve reading statistics, there was an issue with the database!'
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
             elif cmd == 'RQST_DOWNLOAD':
+                sensorid = int(js['sensorid'])
+                groupid = int(js['groupid'])
+                start_ts = int(js['start_ts'])
+                end_ts = int(js['end_ts'])
                 resp['cmd'] = 'RESP_DOWNLOAD'
-                # perform verification checks
-                if ('start_date' not in js or 
-                        'end_date' not in js):
-                    resp['cmd'] = 'RESP_DOWNLOAD_ERROR'
-                    resp['error'] = 'ERROR: Request requires the \'start_date\' and \'end_date\' fields!'
-                if resp['cmd'] == 'RESP_DOWNLOAD_ERROR':
-                    await ws.send_str(simplejson.dumps(resp))
-                    continue
-                # get request info
-                try:
-                    groupid = int(js['groupid'])
-                    start_date = int(js['start_date'])
-                    end_date = int(js['end_date'])
-                except Exception:
-                    resp['cmd'] = 'RESP_DOWNLOAD_ERROR'
-                    resp['error'] = 'ERROR: \'groupid\', \'start_date\', and \'end_date\' must be integer numeric types!'
-                if resp['cmd'] == 'RESP_DOWNLOAD_ERROR':
-                    await ws.send_str(simplejson.dumps(resp))
-                    continue
                 try:
                     data = []
                     async for doc in request.app['db'].get_readings_by_period(sensorid,
-                        groupid, start_date, end_date):
+                        groupid, start_ts, end_ts):
                         data.append(doc)
                     resp['data'] = data
                 except Exception as e:
@@ -314,7 +253,7 @@ async def ws_handler(request):
             resp = dict()
             resp['cmd'] == 'RESP_WS_ERROR'
             resp['error'] = 'WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception())
-            ws.send_str(simplejson.dumps(resp))
+            await ws.send_str(simplejson.dumps(resp))
 
     await _leave(request.app['rooms'], groupid, sensorid, ws)
 
