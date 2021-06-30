@@ -29,7 +29,7 @@ from senslify.verify import verify_rest_request
 
 
 word_gen = RandomWords()
-def generate_alias(n=3):
+def _generate_alias(n=3):
     '''Returns an n-word plain-English alias separated by hyphens.
 
     Arguments:
@@ -178,7 +178,7 @@ async def _provision_handler(request, params):
         if 'alias' in params:
             sensor_alias = params['alias']
         else:
-            sensor_alias = generate_alias()
+            sensor_alias = _generate_alias()
         group_inserted = False
         try:
             if not await request.app['db'].does_group_exist(groupid):
@@ -206,7 +206,7 @@ async def _provision_handler(request, params):
         if 'alias' in params:
             group_alias = params['alias']
         else:
-            group_alias = generate_alias()
+            group_alias = _generate_alias()
         try:
             if await request.app['db'].does_group_exist(groupid):
                 # require that the group does not exist
