@@ -32,7 +32,7 @@
 #   for all possible situations - CF
 
 
-import bson, pymongo, sys
+import bson, pymongo, pyodbc, sys
 from contextlib import contextmanager
 from senslify.errors import DBError
 
@@ -98,12 +98,16 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
-    def init(self):
+    def init(self, migration):
         """Initializes the database with the initial table design dictated in
         'Docs/DB.md'.
 
         This command should either fail soft or prompt the user
         to confirm deletion of the database if the database already exists.
+
+        Arguments:
+            migration (boolean): Whether the database is a migration database
+            or not.
         """
         raise NotImplementedError
 
@@ -179,22 +183,24 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
-    async def get_readings(self, sensorid, groupid, limit=DOC_LIMIT):
+    async def get_readings(self, sensorid, groupid, rtype=None, limit=DOC_LIMIT):
         """Generator function for retrieving readings from the database.
 
         Args:
             sensorid (int): The id of the sensor to return readings on.
             groupid (int): The id of the group the sensor belongs to.
-            limit (int): The number of readings to return in a single call.
+            rtypeid (int): The id of the rtype corresponding the reading type to return (default: None).
+            limit (int): The number of readings to return in a single call (default: 100).
         """
         raise NotImplementedError
 
 
-    async def insert_group(self, groupid):
+    async def insert_group(self, groupid, alias):
         """Inserts a group into the database.
 
         Args:
             groupid (int): The id of the group.
+            alias (str): The human readable alias for the group.
         """
         raise NotImplementedError
 
@@ -218,12 +224,13 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
-    async def insert_sensor(self, sensorid, groupid):
+    async def insert_sensor(self, sensorid, groupid, alias):
         """Inserts a sensorboard into the database.
 
         Args:
             sensorid (int): The id assigned to the sensorboard.
             groupid (int): The id of the group the sensorboard belongs to.
+            alias (str): The human readable alias for the sensor.
         """
         raise NotImplementedError
 
@@ -357,10 +364,14 @@ class MongoProvider(DatabaseProvider):
             self._open = False
 
 
-    def init(self):
+    def init(self, migration=False):
         """Initializes the database with the initial table design dictated in
         'docs/DB.rst'. This command will fail-soft if the database already
         exists.
+
+        Arguments:
+            migration (boolean): Whether the database is a migration database
+            or not (default: False).
         """
         if not self._open:
             print('Cannot initialize database, connection not open!')
@@ -375,36 +386,37 @@ class MongoProvider(DatabaseProvider):
                     # otherwise exit the method, no initialization needed
                     return
             # create the indexes on the collections in the database
-            self._conn[self._db].sensors.create_index([
-                ("sensorid", pymongo.ASCENDING),
-                ("groupid", pymongo.ASCENDING)], unique=True
-            )
-            self._conn[self._db].groups.create_index([
-                ("groupid", pymongo.ASCENDING)], unique=True
-            )
-            self._conn[self._db].rtypes.create_index([
-                ("rtypeid", pymongo.ASCENDING),
-                ("rtype", pymongo.ASCENDING)], unique=True
-            )
             self._conn[self._db].readings.create_index([
                 ("sensorid", pymongo.ASCENDING),
                 ("groupid", pymongo.ASCENDING),
                 ("rtypeid", pymongo.ASCENDING),
                 ("ts", pymongo.ASCENDING)], unique=True
             )
-            # insert starting rtypes into the database
-            #   if you want more rtypes in the database than this, you'll need to
-            #   insert them through the Mongo shell, I don't provide a way to do so
-            # or you know, you could modify this list too, but it will require
-            #   reinitializing the database, deleting anything in there currently
-            self._conn[self._db].rtypes.insert_many([
-                # Note that these rtypes match up with the ReadForward TOS App
-                {"rtypeid": 0, "rtype": "Temperature"},
-                {"rtypeid": 1, "rtype": "Humidity"},
-                {"rtypeid": 2, "rtype": "Visible Light"},
-                {"rtypeid": 3, "rtype": "Infrared Light"},
-                {"rtypeid": 4, "rtype": "Voltage"}
-            ])
+            if not migration:
+                self._conn[self._db].sensors.create_index([
+                    ("sensorid", pymongo.ASCENDING),
+                    ("groupid", pymongo.ASCENDING)], unique=True
+                )
+                self._conn[self._db].groups.create_index([
+                    ("groupid", pymongo.ASCENDING)], unique=True
+                )
+                self._conn[self._db].rtypes.create_index([
+                    ("rtypeid", pymongo.ASCENDING),
+                    ("rtype", pymongo.ASCENDING)], unique=True
+                )
+                # insert starting rtypes into the database
+                #   if you want more rtypes in the database than this, you'll need to
+                #   insert them through the Mongo shell, I don't provide a way to do so
+                # or you know, you could modify this list too, but it will require
+                #   reinitializing the database, deleting anything in there currently
+                self._conn[self._db].rtypes.insert_many([
+                    # Note that these rtypes match up with the ReadForward TOS App
+                    {"rtypeid": 0, "rtype": "Temperature"},
+                    {"rtypeid": 1, "rtype": "Humidity"},
+                    {"rtypeid": 2, "rtype": "Visible Light"},
+                    {"rtypeid": 3, "rtype": "Infrared Light"},
+                    {"rtypeid": 4, "rtype": "Voltage"}
+                ])
         except pymongo.errors.PyMongoError as e:
             raise DBError()
         except Exception:
@@ -533,28 +545,30 @@ class MongoProvider(DatabaseProvider):
             raise DBError()
 
 
-    async def get_readings(self, sensorid, groupid, rtypeid,
+    async def get_readings(self, sensorid, groupid, rtypeid=None,
             limit=DatabaseProvider.DOC_LIMIT):
         """Generator function for retrieving readings from the database.
 
         Args:
             sensorid (int): The id of the sensor to return readings on.
             groupid (int): The id of the group the sensor belongs to.
-            limit (int): The number of readings to return in a single call.
+            rtypeid (int): The id of the rtype corresponding the reading type to return (default: None).
+            limit (int): The number of readings to return in a single call (default: 100).
         """
         if not self._open:
             raise DBError('Cannot get readings, database connection not open!')
         try:
-            sensorid = int(sensorid)
-            groupid = int(groupid)
-            rtypeid = int(rtypeid)
-            with self._conn[self._db].readings.find({"sensorid":sensorid, "groupid":groupid, "rtypeid":rtypeid}, {"_id":False}).sort("ts", pymongo.DESCENDING).limit(limit) as cursor:
+            if rtypeid:
+                filters = {"sensorid":sensorid, "groupid":groupid, "rtypeid":rtypeid}
+            else:
+                filters = {"sensorid":sensorid, "groupid":groupid}
+            with self._conn[self._db].readings.find(filters, {"_id":False}).sort("ts", pymongo.DESCENDING).limit(limit) as cursor:
                 for doc in cursor:
                     yield doc
-        except pymongo.errors.PyMongoError:
-            raise DBError()
-        except Exception:
-            raise DBError()
+        except pymongo.errors.PyMongoError as e:
+            raise DBError(f'Database ERROR: {str(e)}')
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_rtypes(self):
@@ -912,7 +926,7 @@ class SQLServerProvider:
 
     @staticmethod
     @contextmanager
-    def get_connection(conn_str, db):
+    def get_connection(conn_str, db=None):
         """Gets a connection to the backing database server.
 
         This method shall be implemented as a generator function, shall yield
@@ -921,27 +935,56 @@ class SQLServerProvider:
 
         Args:
             conn_str (str): The connection string to the database server.
-            db (str): The name of the Senslify database.
+            db (str): The name of the Senslify database - unused by this provider.
 
         Returns:
             DatabaseProvider: A temporary database provider.
         """
-        raise NotImplementedError
+        conn = pyodbc.connect(conn_str)
+        yield conn
+        conn.close()
 
 
     async def close(self):
         """Closes the connection to the backing database provider."""
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            self._conn.close()
+            self._is_open = False
+        except Exception as e:
+            raise DBError(str(e))
 
 
-    def init(self):
+    def init(self, migration=True):
         """Initializes the database with the initial table design dictated in
         'Docs/DB.md'.
 
         This command should either fail soft or prompt the user
         to confirm deletion of the database if the database already exists.
+
+        Arguments:
+            migration (boolean): Whether the database is a migration database
+            or not (default: True).
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                if not migration:
+                    cursor.execute('CREATE TABLE SENSORS (sensorid int, alias varchar(255), PRIMARY KEY(sensorid))')
+                    cursor.execute('CREATE TABLE GROUPS (groupid int, alias varchar(255), PRIMARY KEY(groupid))')
+                    cursor.execute('CREATE TABLE RTYPES (rtypeid int, alias varchar(255), PRIMARY KEY(rtypeid))')
+                cursor.execute('CREATE TABLE READINGS (sensorid int, groupid int, rtypeid int, ts int, value decimal, PRIMARY KEY (sensorid, groupid, rtypeid, ts))')
+                if not migration:
+                    cursor.execute('ALTER TABLE READINGS ADD FOREIGN KEY (sensorid) REFERENCES SENSORS(sensorid)')
+                    cursor.execute('ALTER TABLE READINGS ADD FOREIGN KEY (groupid) REFERENCES GROUPS(groupid)')
+                    cursor.execute('ALTER TABLE READINGS ADD FOREIGN KEY (rtypeid) REFERENCES RTYPES(rtypeid)')
+        except Exception:
+            self._conn.rollback()
+            raise DBError(str(e))
+        finally:
+            self._conn.commit()
 
 
     async def does_group_exist(self, groupid):
@@ -953,7 +996,15 @@ class SQLServerProvider:
         Returns:
             (boolean): True if the group exists, False otherwise.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                if not cursor.execute('SELECT * FROM GROUPS WHERE groupid=?', (groupid)).fetchone(): 
+                    return False
+                return True
+        except Exception:
+            raise DBError(str(e))
 
 
     async def does_rtype_exist(self, rtypeid):
@@ -965,7 +1016,15 @@ class SQLServerProvider:
         Returns:
             (boolean): True if the reading type exists, False otherwise.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                if not cursor.execute('SELECT * FROM RTYPES WHERE rtypeid=?', (rtypeid)).fetchone():
+                    return False
+                return True
+        except Exception:
+            raise DBError(str(e))
 
 
     async def does_sensor_exist(self, sensorid, groupid):
@@ -978,12 +1037,26 @@ class SQLServerProvider:
         Returns:
             (boolean): True if the sensor sensor exists, False otherwise.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                if not cursor.execute('SELECT * FROM SENSORS WHERE groupid=? AND sensorid=?', (groupid, sensorid)).fetchone():
+                    return False
+                return True
+        except Exception:
+            raise DBError(str(e))
 
 
     async def find_max_groupid(self):
         '''Determines the maximum groupid stored in the database.'''
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                return cursor.execute('SELECT MAX(groupid) FROM GROUPS').fetchone()
+        except Exception:
+            raise DBError(str(e))
 
 
     async def find_max_sensorid_in_group(self, groupid):
@@ -993,17 +1066,37 @@ class SQLServerProvider:
         Arguments:
             groupid (int): A group identifier that the sensor will be provisioned with.
         '''
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                return cursor.execute('SELECT MAX(sensorid) FROM SENSORS').fetchone()
+        except Exception:
+            raise DBError(str(e))
 
 
     async def get_groups(self):
         """Generator function used to get groups from the database."""
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                for row in cursor.execute('SELECT * FROM GROUPS').fetchall():
+                    yield row
+        except Exception:
+            raise DBError(str(e))
 
 
     async def get_rtypes(self):
         """Generator function used to get reading types from the database."""
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                for row in cursor.execute('SELECT * FROM RTYPES').fetchall():
+                    yield row
+        except Exception:
+            raise DBError(str(e))
 
 
     async def get_sensors(self, groupid):
@@ -1012,27 +1105,58 @@ class SQLServerProvider:
         Args:
             groupid (int): The id of the group to return sensors from.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                for row in cursor.execute('SELECT * FROM SENSORS').fetchall():
+                    yield row
+        except Exception:
+            raise DBError(str(e))
 
 
-    async def get_readings(self, sensorid, groupid, limit=DOC_LIMIT):
+    async def get_readings(self, sensorid, groupid, rtypeid=None, limit=DOC_LIMIT):
         """Generator function for retrieving readings from the database.
 
         Args:
             sensorid (int): The id of the sensor to return readings on.
             groupid (int): The id of the group the sensor belongs to.
-            limit (int): The number of readings to return in a single call.
+            rtypeid (int): The id of the rtype corresponding the reading type to return (default: None).
+            limit (int): The number of readings to return in a single call (default: 100).
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            if rtype:
+                query = 'SELECT * FROM READINGS WHERE sensorid=? AND groupid=? AND rtypeid=? ORDER BY ts DESC'
+                params = (sensorid, groupid, rtypeid)
+            else:
+                query = 'SELECT * FROM READINGS WHERE sensorid=? AND groupid=? ORDER BY ts DESC'
+                params = (sensorid, groupid)
+            with self._conn.cursor() as cursor:
+                for row in cursor.execute(query, params).fetchall():
+                    yield row
+        except Exception:
+            raise DBError(str(e))
 
 
-    async def insert_group(self, groupid):
+    async def insert_group(self, groupid, alias):
         """Inserts a group into the database.
 
         Args:
             groupid (int): The id of the group.
+            alias (str): The human readable alias for the group.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                cursor.execute('INSERT INTO GROUPS VALUES (groupid=?, alias=?)', (groupid, alias))
+        except Exception as e:
+            self._conn.rollback()
+            raise DBError(str(e))
+        finally:
+            self._conn.commit()
 
 
     async def insert_reading(self, reading):
@@ -1041,7 +1165,9 @@ class SQLServerProvider:
         Args:
             reading (dict): The reading to insert into the database.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        self.insert_readings([reading])
 
 
     async def insert_readings(self, readings, batch_size=BATCH_SIZE):
@@ -1051,26 +1177,54 @@ class SQLServerProvider:
             readings (list): A list of readings to insert into the database.
             batch_size (int): The amount of readings to insert per batch.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            for reading in readings:
+                groupid = reading['groupid']
+                sensorid = reading['sensorid']
+                rtypeid = reading['rtypeid']
+                ts = reading['ts']
+                val = reading['val']
+                with self._conn.cursor() as cursor:
+                    cursor.execute('INSERT INTO READINGS VALUES (groupid=?, sensorid=?, rtypeid=?, ts=?, val=?)', (groupid, sensorid, rtypeid, ts, val))
+        except Exception:
+            self._conn.rollback()
+            raise DBError(str(e))
+        except Exception:
+            raise DBError(str(e))
+        finally:
+            self._conn.commit()
 
 
-    async def insert_sensor(self, sensorid, groupid):
+    async def insert_sensor(self, sensorid, groupid, alias):
         """Inserts a sensorboard into the database.
 
         Args:
             sensorid (int): The id assigned to the sensorboard.
             groupid (int): The id of the group the sensorboard belongs to.
+            alias (str): The human readable alias for the sensor.
         """
-        raise NotImplementedError
-
-
-    def is_open(self):
-        return self._open
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                cursor.execute('INSERT INTO SENSORS VALUES (sensorid=?, groupid=?, alias=?)', (sensorid, groupid, alias))
+        except Exception:
+            self._conn.rollback()
+            raise DBError(str(e))
+        finally:
+            self._conn.commit()
 
 
     def open(self):
         """Opens a connection to the backing database server."""
-        raise NotImplementedError
+        if not self._open:
+            try:
+                self._conn = pyodbc.connect(self._conn_str)
+                self._open = True
+            except pyodbc.DatabaseError:
+                raise DBError('ERROR: An error occurred connecting to the SQL Server instance specified by the connection string!')
 
 
     async def stats_group(self, groupid, rtypeid, start_ts=None, end_ts=None):
@@ -1090,7 +1244,14 @@ class SQLServerProvider:
         Raises:
             (Exception): If there was a problem interacting with the database.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                for row in cursor.execute('SELECT AVG(val), MAX(val), MIN(val), sensorid, groupid FROM READINGS WHERE groupid=? AND rtypeid=? AND ts>=? and ts<? GROUPBY sensorid, groupid', (groupid, rtypeid, start_ts, end_ts)).fetchall():
+                    yield row
+        except Exception:
+            raise DBError(str(e))
 
 
     async def stats_sensor(self, sensorid, groupid, rtypeid, start_ts, end_ts):
@@ -1108,7 +1269,13 @@ class SQLServerProvider:
         Raises:
             (Exception): If there was a problem interacting with the database.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                return cursor.execute('SELECT AVG(val), MAX(val), MIN(val) WHERE sensorid=? AND groupid=? AND rtypeid=? AND ts>=? AND ts<?', (sensorid, groupid, rtypeid, ts)).fetchcone()
+        except Exception:
+            raise DBError(str(e))
 
 
     async def get_readings_by_period(self, sensorid, groupid, start_ts, end_ts):
@@ -1121,4 +1288,11 @@ class SQLServerProvider:
             start_ts (datetime.datetime): The start time period.
             end_ts (datetime.datetime): The end time period.
         """
-        raise NotImplementedError
+        if not self._is_open:
+            raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                for row in cursor.execute().fetchall('SELECT * FROM READINGS WHERE sensorid=? AND groupid=? AND ts >= ? AND ts < ? ORDER BY ts DESC', (sensorid, groupid, start_ts, end_ts)):
+                    yield row
+        except Exception:
+            raise DBError(str(e))

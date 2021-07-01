@@ -208,7 +208,8 @@ async def ws_handler(request):
                     async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
                         reading['rstring'] = filter_reading(reading)
                         readings.append(reading)
-                except DBError:
+                except DBError as e:
+                    print(e)
                     resp['cmd'] = 'RESP_ERROR'
                     resp['error'] = 'ERROR: There was an issue retrieving the top 100 readings for the new reading type from the database!'
                     await ws.send_str(simplejson.dumps(resp))
@@ -252,7 +253,7 @@ async def ws_handler(request):
         elif msg.type == aiohttp.WSMsgType.ERROR:
             resp = dict()
             resp['cmd'] == 'RESP_WS_ERROR'
-            resp['error'] = 'WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception())
+            resp['error'] = 'ERROR: WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception())
             await ws.send_str(simplejson.dumps(resp))
 
     await _leave(request.app['rooms'], groupid, sensorid, ws)

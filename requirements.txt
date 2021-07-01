@@ -11,3 +11,4 @@ gevent
 sphinx
 pyyaml
 random-word
+pyodbc
