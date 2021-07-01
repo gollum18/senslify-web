@@ -5,7 +5,7 @@
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
 # A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND
 # PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE
-# DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR
+# DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR ORb
 # CORRECTION.
 
 # Name: db.py
@@ -1639,21 +1639,6 @@ class PostGresProvider(_GenericSQLProvider):
         _GenericSQLProvider.__init__(self, conn_str, db)
 
 
-class SQLServerProvider(_GenericSQLProvider):
-    """Defines a provider for a MS SQL Server instance."""
-
-    def __init__(self, conn_str, db):
-        """Returns an instance of a DatabaseProvider. Do not call this function.
-        All of the methods defined by the DatabaseProvider class will raise a
-        NotImplementedError when called.
-
-        Args:
-            conn_str (str): The connection string for the database server.
-            db (str): The name of the Senslify database.
-        """
-        _GenericSQLProvider.__init__(self, conn_str, db)
-
-
     def open(self):
         """Opens a connection to the backing database server."""
         if not self._open:
@@ -1669,3 +1654,18 @@ class SQLServerProvider(_GenericSQLProvider):
                 self._open = True
             except Exception as e:
                 raise DBError(f'ERROR: {str(e)}')
+
+
+class SQLServerProvider(_GenericSQLProvider):
+    """Defines a provider for a MS SQL Server instance."""
+
+    def __init__(self, conn_str, db):
+        """Returns an instance of a DatabaseProvider. Do not call this function.
+        All of the methods defined by the DatabaseProvider class will raise a
+        NotImplementedError when called.
+
+        Args:
+            conn_str (str): The connection string for the database server.
+            db (str): The name of the Senslify database.
+        """
+        _GenericSQLProvider.__init__(self, conn_str, db)
