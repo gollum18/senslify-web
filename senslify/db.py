@@ -25,10 +25,10 @@
 #   provider for the Senslify web application.
 # The SQLServerProvider class provides implementations of the 
 #   DatabaseProvider methods in the context of Microsoft SQL Server and is
-#   a secondary provider from the class.
+#   a secondary provider for the Senslify web application.
 
 # TODO: Also note that the database is intentionally unsecured. Future
-#   future maintainers *should* (shall) implement security on the database
+#   maintainers *should* (shall) implement security on the database
 #   side before releasing this software into production. I have made reasonable
 #   attempts in the MongoProvider class to prevent ridiculous values from being
 #   inserted into the database via the 'upload_handler' but I can't account
@@ -115,6 +115,19 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
+    async def delete_group(self, groupid):
+        """Deletes the indicated group from the database. This operation cascades
+        to sensors and readings.
+
+        Args:
+            groupid (int): A group identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        raise NotImplementedError
+
+
     async def delete_reading(self, sensorid, groupid, rtypeid, ts):
         """Deletes the indicated reading from the database.
 
@@ -125,7 +138,49 @@ class DatabaseProvider:
             ts (int): A UNIX timestamp.
 
         Returns:
-            (int): The number of readings that are deleted.
+            (int): The number of records that are deleted.
+        """
+        raise NotImplementedError
+
+
+    async def delete_readings(self, sensorid, groupid, rtypeid=None):
+        """Deletes all readings for the indicated sensor. if rtypeid is not
+        None, only deletes readings that match the specified reading type.
+
+        Args:
+            sensorid (int): A sensor identifier.
+            groupid (int): A group identifier.
+            rtypeid (int): A reading type identifier (default: None).
+
+        Returns:
+            (int): The number of records that are deleted. 
+        """
+        raise NotImplementedError
+
+
+    async def delete_rtype(self, rtypeid):
+        """Deletes the indicated rtype from the database. This operation 
+        cascades to readings.
+
+        Args:
+            rtypeid (int): A reading type identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        raise NotImplementedError
+
+
+    async def delete_sensor(self, groupid, sensorid):
+        """Deletes the indicated sensor from the database. This operation
+        cascades to readings.
+
+        Args:
+            groupid (int): A group identifier.
+            sensorid (int): A sensor identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
         """
         raise NotImplementedError
 
@@ -439,6 +494,40 @@ class MongoProvider(DatabaseProvider):
             raise DBError(f'ERROR: {str(e)}')
 
 
+    async def delete_group(self, groupid):
+        """Deletes the indicated group from the database. This operation cascades
+        to sensors and readings.
+
+        Args:
+            groupid (int): A group identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete group from database, database connection is not open!')
+        count = 0
+        try:
+            count += self._conn[self._db].readings.delete_many(
+                filter={
+                    'groupid': groupid
+                }
+            )
+            count += self._conn[self._db].sensors.delete_many(
+                filter={
+                    'groupid': groupid
+                }
+            )
+            count += self._conn[self._db].groups.delete_one(
+                filter={
+                    'groupid': groupid
+                }
+            )
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
+        return count
+
+
     async def delete_reading(self, sensorid, groupid, rtypeid, ts):
         """Deletes the indicated reading from the database.
 
@@ -452,7 +541,7 @@ class MongoProvider(DatabaseProvider):
             (int): The number of readings that are deleted.
         """
         if not self._open:
-            raise DBError('ERROR: Cannot delete reading, database connection is not open!')
+            raise DBError('ERROR: Cannot delete reading from database, database connection is not open!')
         try:
             return self._conn[self._db].readings.delete_one(
                 filter={
@@ -464,6 +553,93 @@ class MongoProvider(DatabaseProvider):
             )
         except Exception as e:
             raise DBError(f'ERROR: {str(e)}')
+
+
+    async def delete_readings(self, sensorid, groupid, rtypeid=None):
+        """Deletes all readings for the indicated sensor. if rtypeid is not
+        None, only deletes readings that match the specified reading type.
+
+        Args:
+            sensorid (int): A sensor identifier.
+            groupid (int): A group identifier.
+            rtypeid (int): A reading type identifier (default: None).
+
+        Returns:
+            (int): The number of records that are deleted. 
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete readings from database, database connection is not open!')
+        count = 0
+        try:
+            if rtypeid:
+                query={'sensorid': sensorid, 'groupid': groupid, 'rtypeid': rtypeid}
+            else:
+                query={'sensorid': sensorid, 'groupid': groupid}
+            count += self._conn[self._db].readings.delete_many(filter=query)
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
+        return count
+
+
+    async def delete_rtype(self, rtypeid):
+        """Deletes the indicated rtype from the database. This operation 
+        cascades to readings.
+
+        Args:
+            rtypeid (int): A reading type identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete reading type from database, database connection is not open!')
+        count = 0
+        try:
+            count += self._conn[self._db].readings.delete_many(
+                filter={
+                    'rtypeid': rtypeid
+                }
+            )
+            count += self._conn[self._db].rtypes.delete_one(
+                filter={
+                    'rtypeid': rtypeid
+                }
+            )
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
+        return count
+
+
+    async def delete_sensor(self, groupid, sensorid):
+        """Deletes the indicated sensor from the database. This operation
+        cascades to readings.
+
+        Args:
+            groupid (int): A group identifier.
+            sensorid (int): A sensor identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete sensor from database, database connection is not open!')
+        count = 0
+        try:
+            count += self._conn[self._db].readings.delete_many(
+                filter={
+                    'groupid': groupid, 
+                    'sensorid': sensorid
+                }
+            )
+            count += self._conn[self._db].sensors.delete_one(
+                filter={
+                    'groupid': groupid, 
+                    'sensorid': sensorid
+                }
+            )
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
+        return count
 
 
     async def does_group_exist(self, groupid):
@@ -1014,6 +1190,32 @@ class SQLServerProvider:
             self._conn.commit()
 
 
+    async def delete_group(self, groupid):
+        """Deletes the indicated group from the database. This operation cascades
+        to sensors and readings.
+
+        Args:
+            groupid (int): A group identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete group, database connection is not open!')
+        count = 0
+        try:
+            with self._conn.cursor() as cursor:
+                count += cursor.execute('DELETE FROM READINGS WHERE groupid=?', (groupid))
+                count += cursor.execute('DELETE FROM SENSORS WHERE groupid=?', (groupid))
+                count += cursor.execute('DELETE FROM GROUPS WHERE groupid=?', (groupid))
+        except Exception as e:
+            self._conn.rollback()
+            raise DBError(f'ERROR: {str(e)}')
+        finally:
+            self._conn.commit()
+        return count
+
+
     async def delete_reading(self, sensorid, groupid, rtypeid, ts):
         """Deletes the indicated reading from the database.
 
@@ -1026,18 +1228,99 @@ class SQLServerProvider:
         Returns:
             (int): The number of readings that are deleted.
         """
-        count = 0
         if not self._open:
-            raise DBError('ERROR: Cannot delete reading from database. Database connection is not open!')
+            raise DBError('ERROR: Cannot delete reading from database, database connection is not open!')
+        count = 0
         try:
             with self._conn.cursor() as cursor:
-                count = cursor.execute('DELETE FROM READINGS WHERE sensorid=?, groupid=?, rtypeid=?, ts=?', (sensorid, groupid, rtypeid, ts))
+                count += cursor.execute('DELETE FROM READINGS WHERE sensorid=? AND groupid=? AND rtypeid=? AND ts=?', (sensorid, groupid, rtypeid, ts))
         except Exception as e:
             self._conn.rollback()
             raise DBError(str(e))
         finally:
             self._conn.commit()
         return count
+
+
+    async def delete_readings(self, sensorid, groupid, rtypeid=None):
+        """Deletes all readings for the indicated sensor. if rtypeid is not
+        None, only deletes readings that match the specified reading type.
+
+        Args:
+            sensorid (int): A sensor identifier.
+            groupid (int): A group identifier.
+            rtypeid (int): A reading type identifier (default: None).
+
+        Returns:
+            (int): The number of records that are deleted. 
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete readings from database, database connection is not open!')
+        count = 0
+        try:
+            if rtypeid:
+                query = 'DELETE FROM READINGS WHERE sensorid=? AND groupid=? AND rtypeid=?'
+                params = (sensorid, groupid, rtypeid)
+            else:
+                query = 'DELETE FROM READINGS WHERE sensorid=? AND groupid=?'
+                params = (sensorid, groupid)
+            with self._conn.cursor() as cursor:
+                count += cursor.execute(query, params)
+        except Exception as e:
+            self._conn.rollback()
+            raise DBError(str(e))
+        finally:
+            self._conn.commit()
+        return count
+
+
+    async def delete_rtype(self, rtypeid):
+        """Deletes the indicated rtype from the database. This operation 
+        cascades to readings.
+
+        Args:
+            rtypeid (int): A reading type identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        count = 0
+        if not self._open:
+            raise DBError('ERROR: Cannot delete reading type, database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                count += cursor.execute('DELETE FROM READINGS WHERE rtypeid=?', (rtypeid))
+                count += cursor.execute('DELETE FROM RTYPES WHERE rtypeid=?', (rtypeid))
+        except Exception as e:
+            self._conn.rollback()
+            raise DBError(f'ERROR: {str(e)}')
+        finally:
+            self._conn.commit()
+        return count
+
+
+    async def delete_sensor(self, groupid, sensorid):
+        """Deletes the indicated sensor from the database. This operation
+        cascades to readings.
+
+        Args:
+            groupid (int): A group identifier.
+            sensorid (int): A sensor identifier.
+
+        Returns:
+            (int): The number of records that are deleted.
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete sensor, database connection is not open!')
+        count = 0
+        try:
+            count += cursor.execute('DELETE FROM READINGS WHERE groupid=? AND sensorid=?', (groupid, sensorid))
+            count += cursor.execute('DELETE FROM SENSORS WHERE groupid=? AND sensorid=?', (groupid, sensorid))
+        except Exception as e:
+            self._conn.rollback()
+            raise DBError(f'ERROR: {str(e)}')
+        finally:
+            self._conn.commit()
 
 
     async def does_group_exist(self, groupid):

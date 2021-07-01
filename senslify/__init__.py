@@ -106,12 +106,12 @@ def build_app(config_file='./senslify/config/senslify.conf'):
     try:
         username = None
         password = None
-        auth_required = input('Do we require a username and password to connect to the database server? [y|n]: ').lower()
+        auth_required = input('Do we require a username and password to connect to the primary database server? [y|n]: ').lower()
         if auth_required == 'y':
             username = input('Username: ')
             password = getpass.getpass()
         app['db'] = MongoProvider(
-            conn_str=app['config'].conn_str,
+            conn_str=app['config'].mongo_conn_str,
             username=username,
             password=password
         )
