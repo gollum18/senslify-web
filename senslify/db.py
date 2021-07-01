@@ -112,6 +112,21 @@ class DatabaseProvider:
         raise NotImplementedError
 
 
+    async def delete_reading(self, sensorid, groupid, rtypeid, ts):
+        """Deletes the indicated reading from the database.
+
+        Args:
+            sensorid (int): A sensor identifier.
+            groupid (int): A group identifier.
+            rtypeid (int): A reading type identifier.
+            ts (int): A UNIX timestamp.
+
+        Returns:
+            (int): The number of readings that are deleted.
+        """
+        raise NotImplementedError
+
+
     async def does_group_exist(self, groupid):
         """Determines if the specifiied group exists in the database.
 
@@ -417,10 +432,35 @@ class MongoProvider(DatabaseProvider):
                     {"rtypeid": 3, "rtype": "Infrared Light"},
                     {"rtypeid": 4, "rtype": "Voltage"}
                 ])
-        except pymongo.errors.PyMongoError as e:
-            raise DBError()
-        except Exception:
-            raise DBError()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
+
+
+    async def delete_reading(self, sensorid, groupid, rtypeid, ts):
+        """Deletes the indicated reading from the database.
+
+        Args:
+            sensorid (int): A sensor identifier.
+            groupid (int): A group identifier.
+            rtypeid (int): A reading type identifier.
+            ts (int): A UNIX timestamp.
+
+        Returns:
+            (int): The number of readings that are deleted.
+        """
+        if not self._open:
+            raise DBError('ERROR: Cannot delete reading, database connection is not open!')
+        try:
+            return self._conn[self._db].readings.delete_one(
+                filter={
+                    'sensorid': sensorid, 
+                    'groupid': groupid, 
+                    'rtypeid': rtypeid, 
+                    'ts': ts
+                }
+            )
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def does_group_exist(self, groupid):
@@ -430,14 +470,12 @@ class MongoProvider(DatabaseProvider):
             groupid (int): The id of the group to check for.
         """
         if not self._open:
-            raise DBError('Cannot determine if group exists, database connection not open!')
+            raise DBError('ERROR: Cannot determine if group exists, database connection not open!')
         try:
             return self._conn[self._db].groups.find_one(
                 filter={'groupid': groupid}) is not None
-        except pymongo.errors.PyMongoError:
-            raise DBError()
-        except Exception:
-            raise DBError()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def does_rtype_exist(self, rtypeid):
@@ -451,10 +489,8 @@ class MongoProvider(DatabaseProvider):
         try:
             return self._conn[self._db].rtypes.find_one(
                 filter={'rtypeid': rtypeid}) is not None
-        except pymongo.errors.PyMongoError:
-            raise DBError()
         except Exception as e:
-            raise DBError()
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def does_sensor_exist(self, sensorid, groupid):
@@ -469,10 +505,8 @@ class MongoProvider(DatabaseProvider):
             return self._conn[self._db].sensors.find_one(
                     filter={'sensorid': sensorid,
                             'groupid': groupid}) is not None
-        except pymongo.errors.PyMongoError:
-            raise DBError()
-        except Exception:
-            raise DBError()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def find_max_groupid(self):
@@ -488,9 +522,12 @@ class MongoProvider(DatabaseProvider):
                 {"max": {"$max": "$groupid"}}
             }
         ]
-        with self._conn[self._db].groups.aggregate(pipeline,
-            allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-            return cursor.next()
+        try:
+            with self._conn[self._db].groups.aggregate(pipeline,
+                allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
+                return cursor.next()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def find_max_sensorid_in_group(self, groupid):
@@ -521,9 +558,12 @@ class MongoProvider(DatabaseProvider):
                 {"max": {"$max": "$sensorid"}}
             }
         ]
-        with self._conn[self._db].sensors.aggregate(pipeline,
-            allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-            return cursor.next()
+        try:
+            with self._conn[self._db].sensors.aggregate(pipeline,
+                allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
+                return cursor.next()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_groups(self):
@@ -539,10 +579,8 @@ class MongoProvider(DatabaseProvider):
                     {'_id': False}) as cursor:
                 for doc in cursor:
                     yield doc
-        except pymongo.errors.PyMongoError:
-            raise DBError()
-        except Exception:
-            raise DBError()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_readings(self, sensorid, groupid, rtypeid=None,
@@ -565,8 +603,6 @@ class MongoProvider(DatabaseProvider):
             with self._conn[self._db].readings.find(filters, {"_id":False}).sort("ts", pymongo.DESCENDING).limit(limit) as cursor:
                 for doc in cursor:
                     yield doc
-        except pymongo.errors.PyMongoError as e:
-            raise DBError(f'Database ERROR: {str(e)}')
         except Exception as e:
             raise DBError(f'ERROR: {str(e)}')
 
@@ -583,10 +619,8 @@ class MongoProvider(DatabaseProvider):
             with self._conn[self._db].rtypes.find({}, {'_id': False}) as cursor:
                 for doc in cursor:
                     yield doc
-        except pymongo.errors.PyMongoError:
-            raise DBError()
         except Exception:
-            raise DBError()
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_sensors(self, groupid):
@@ -603,10 +637,8 @@ class MongoProvider(DatabaseProvider):
             with self._conn[self._db].sensors.find({'groupid': groupid}, {'_id': False}) as cursor:
                 for doc in cursor:
                     yield doc
-        except pymongo.errors.PyMongoError:
-            raise DBError('ERROR: There was a problem with the PyMongo driver!')
-        except Exception:
-            raise DBError('ERROR: An unspecified system error occurred!')
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def insert_group(self, groupid, alias):
@@ -627,10 +659,8 @@ class MongoProvider(DatabaseProvider):
                         "alias": alias
                     }
                 )
-        except pymongo.errors.PyMongoError:
-            raise DBError('ERROR: There was a problem with the PyMongo driver!')
-        except Exception:
-            raise DBError('ERROR: An unspecified system error occurred!')
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def insert_readings(self, readings, batch_size=DatabaseProvider.BATCH_SIZE):
@@ -649,10 +679,8 @@ class MongoProvider(DatabaseProvider):
                 step = batch_size if index + batch_size < lim else lim - index
                 self._conn[self._db].readings.insert_many(readings[index:index+step])
                 index += step
-        except pymongo.errors.PyMongoError:
-            return False, DBError('ERROR: There was a problem with the PyMongo driver!')
-        except Exception:
-            return False, DBError('ERROR: An unspecified system error occurred!')
+        except Exception as e:
+            return False, DBError(f'ERROR: {str(e)}')
         return True, None
 
 
@@ -673,11 +701,8 @@ class MongoProvider(DatabaseProvider):
                     'groupid': groupid,
                     'alias': alias
                 })
-        except pymongo.errors.PyMongoError as e:
-            print(e)
-            return False, DBError('ERROR: There was a problem with the PyMongo driver!')
         except Exception as e:
-            return False, DBError('ERROR: An unspecified system error occurred!')
+            return False, DBError(f'ERROR: {str(e)}')
         return True, None
 
 
@@ -696,8 +721,8 @@ class MongoProvider(DatabaseProvider):
                         self._conn_str
                     )
                 self._open = True
-            except pymongo.errors.PyMongoError:
-                raise DBError('ERROR: Cannot continue, there was a problem opening the database connection!\n{}'.format(str(e)))
+            except Exception as e:
+                raise DBError(f'ERROR: {str(e)}')
         
 
     async def stats_group(self, groupid, rtypeid, start_ts, end_ts):
@@ -745,8 +770,8 @@ class MongoProvider(DatabaseProvider):
                     allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
                 # the above project should only return a single document
                 return cursor.next()
-        except Exception:
-            raise DBError()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def stats_sensor(self, sensorid, groupid, rtypeid, start_ts, end_ts):
@@ -843,8 +868,8 @@ class MongoProvider(DatabaseProvider):
                 stats['avg'] = 0
             # return the stats container
             return stats
-        except Exception:
-            raise DBError()
+        except Exception as e:
+            raise DBError(f'ERROR: {str(e)}')
 
     
     async def get_readings_by_period(self, sensorid, groupid, start_ts, end_ts):
@@ -898,8 +923,7 @@ class MongoProvider(DatabaseProvider):
                 for doc in cursor:
                     yield doc
         except Exception as e:
-            print(e)
-            raise DBError()
+            raise DBError(f'ERROR: {str(e)}')
 
 
 class SQLServerProvider:
@@ -947,7 +971,7 @@ class SQLServerProvider:
 
     async def close(self):
         """Closes the connection to the backing database provider."""
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             self._conn.close()
@@ -967,7 +991,7 @@ class SQLServerProvider:
             migration (boolean): Whether the database is a migration database
             or not (default: True).
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
@@ -980,11 +1004,37 @@ class SQLServerProvider:
                     cursor.execute('ALTER TABLE READINGS ADD FOREIGN KEY (sensorid) REFERENCES SENSORS(sensorid)')
                     cursor.execute('ALTER TABLE READINGS ADD FOREIGN KEY (groupid) REFERENCES GROUPS(groupid)')
                     cursor.execute('ALTER TABLE READINGS ADD FOREIGN KEY (rtypeid) REFERENCES RTYPES(rtypeid)')
-        except Exception:
+        except Exception as e:
             self._conn.rollback()
             raise DBError(str(e))
         finally:
             self._conn.commit()
+
+
+    async def delete_reading(self, sensorid, groupid, rtypeid, ts):
+        """Deletes the indicated reading from the database.
+
+        Args:
+            sensorid (int): A sensor identifier.
+            groupid (int): A group identifier.
+            rtypeid (int): A reading type identifier.
+            ts (int): A UNIX timestamp.
+
+        Returns:
+            (int): The number of readings that are deleted.
+        """
+        count = 0
+        if not self._open:
+            raise DBError('ERROR: Cannot delete reading from database. Database connection is not open!')
+        try:
+            with self._conn.cursor() as cursor:
+                count = cursor.execute('DELETE FROM READINGS WHERE sensorid=?, groupid=?, rtypeid=?, ts=?', (sensorid, groupid, rtypeid, ts))
+        except Exception as e:
+            self._conn.rollback()
+            raise DBError(str(e))
+        finally:
+            self._conn.commit()
+        return count
 
 
     async def does_group_exist(self, groupid):
@@ -996,14 +1046,14 @@ class SQLServerProvider:
         Returns:
             (boolean): True if the group exists, False otherwise.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 if not cursor.execute('SELECT * FROM GROUPS WHERE groupid=?', (groupid)).fetchone(): 
                     return False
                 return True
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1016,14 +1066,14 @@ class SQLServerProvider:
         Returns:
             (boolean): True if the reading type exists, False otherwise.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 if not cursor.execute('SELECT * FROM RTYPES WHERE rtypeid=?', (rtypeid)).fetchone():
                     return False
                 return True
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1037,25 +1087,25 @@ class SQLServerProvider:
         Returns:
             (boolean): True if the sensor sensor exists, False otherwise.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 if not cursor.execute('SELECT * FROM SENSORS WHERE groupid=? AND sensorid=?', (groupid, sensorid)).fetchone():
                     return False
                 return True
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
     async def find_max_groupid(self):
         '''Determines the maximum groupid stored in the database.'''
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 return cursor.execute('SELECT MAX(groupid) FROM GROUPS').fetchone()
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1066,36 +1116,36 @@ class SQLServerProvider:
         Arguments:
             groupid (int): A group identifier that the sensor will be provisioned with.
         '''
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 return cursor.execute('SELECT MAX(sensorid) FROM SENSORS').fetchone()
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
     async def get_groups(self):
         """Generator function used to get groups from the database."""
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 for row in cursor.execute('SELECT * FROM GROUPS').fetchall():
                     yield row
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
     async def get_rtypes(self):
         """Generator function used to get reading types from the database."""
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 for row in cursor.execute('SELECT * FROM RTYPES').fetchall():
                     yield row
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1105,13 +1155,13 @@ class SQLServerProvider:
         Args:
             groupid (int): The id of the group to return sensors from.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 for row in cursor.execute('SELECT * FROM SENSORS').fetchall():
                     yield row
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1124,7 +1174,7 @@ class SQLServerProvider:
             rtypeid (int): The id of the rtype corresponding the reading type to return (default: None).
             limit (int): The number of readings to return in a single call (default: 100).
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             if rtype:
@@ -1136,7 +1186,7 @@ class SQLServerProvider:
             with self._conn.cursor() as cursor:
                 for row in cursor.execute(query, params).fetchall():
                     yield row
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1147,7 +1197,7 @@ class SQLServerProvider:
             groupid (int): The id of the group.
             alias (str): The human readable alias for the group.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
@@ -1165,7 +1215,7 @@ class SQLServerProvider:
         Args:
             reading (dict): The reading to insert into the database.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         self.insert_readings([reading])
 
@@ -1177,7 +1227,7 @@ class SQLServerProvider:
             readings (list): A list of readings to insert into the database.
             batch_size (int): The amount of readings to insert per batch.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             for reading in readings:
@@ -1188,10 +1238,8 @@ class SQLServerProvider:
                 val = reading['val']
                 with self._conn.cursor() as cursor:
                     cursor.execute('INSERT INTO READINGS VALUES (groupid=?, sensorid=?, rtypeid=?, ts=?, val=?)', (groupid, sensorid, rtypeid, ts, val))
-        except Exception:
+        except Exception as e:
             self._conn.rollback()
-            raise DBError(str(e))
-        except Exception:
             raise DBError(str(e))
         finally:
             self._conn.commit()
@@ -1205,12 +1253,12 @@ class SQLServerProvider:
             groupid (int): The id of the group the sensorboard belongs to.
             alias (str): The human readable alias for the sensor.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 cursor.execute('INSERT INTO SENSORS VALUES (sensorid=?, groupid=?, alias=?)', (sensorid, groupid, alias))
-        except Exception:
+        except Exception as e:
             self._conn.rollback()
             raise DBError(str(e))
         finally:
@@ -1244,13 +1292,13 @@ class SQLServerProvider:
         Raises:
             (Exception): If there was a problem interacting with the database.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 for row in cursor.execute('SELECT AVG(val), MAX(val), MIN(val), sensorid, groupid FROM READINGS WHERE groupid=? AND rtypeid=? AND ts>=? and ts<? GROUPBY sensorid, groupid', (groupid, rtypeid, start_ts, end_ts)).fetchall():
                     yield row
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1269,12 +1317,12 @@ class SQLServerProvider:
         Raises:
             (Exception): If there was a problem interacting with the database.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 return cursor.execute('SELECT AVG(val), MAX(val), MIN(val) WHERE sensorid=? AND groupid=? AND rtypeid=? AND ts>=? AND ts<?', (sensorid, groupid, rtypeid, ts)).fetchcone()
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
 
 
@@ -1288,11 +1336,11 @@ class SQLServerProvider:
             start_ts (datetime.datetime): The start time period.
             end_ts (datetime.datetime): The end time period.
         """
-        if not self._is_open:
+        if not self._open:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
                 for row in cursor.execute().fetchall('SELECT * FROM READINGS WHERE sensorid=? AND groupid=? AND ts >= ? AND ts < ? ORDER BY ts DESC', (sensorid, groupid, start_ts, end_ts)):
                     yield row
-        except Exception:
+        except Exception as e:
             raise DBError(str(e))
