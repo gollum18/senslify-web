@@ -12,27 +12,22 @@
 # Since: ~July 15th, 2019
 # Author: Christen Ford
 # Description: Encapsulates methods and classes used to interact with the
-#   backing database. This module comes packaged with a generic DatabaseProvider
-#   as well as a MongoProvider class that implements it. If you want to switch
-#   to a different database provider, you should inherit from the
-#   DatabaseProvider class and implement its methods. The DatabaseProvider
-#   class does not define a __init__ method. Many of the methods defined
-#   by the DatabaseProvider class are asynchronous. As such, you will need
-#   to utilize an async compatible database connector when inheriting
-#   from the class.
+#   backing database. This class provides a generic database adapater that
+#   includes a set of basic functionality needed by the Senslify web
+#   application. This adapter serves as a base class for driver specific
+#   implementations of the adapter. The list of drivers that this application
+#   supports out-of-the-box are listed below.
+
+# The list of supported (non 3rd party) drivers are:
 # The MongoProvider class provides implementations of the
 #   DatabaseProvider methods in the context of MongoDB and is the default
+#   provider for the Senslify web application.
+# The PostGresProvider class provides implementations of the 
+#   DatabaseProvider methods in the context of PostGresSQL and is a secondary
 #   provider for the Senslify web application.
 # The SQLServerProvider class provides implementations of the 
 #   DatabaseProvider methods in the context of Microsoft SQL Server and is
 #   a secondary provider for the Senslify web application.
-
-# TODO: Also note that the database is intentionally unsecured. Future
-#   maintainers *should* (shall) implement security on the database
-#   side before releasing this software into production. I have made reasonable
-#   attempts in the MongoProvider class to prevent ridiculous values from being
-#   inserted into the database via the 'upload_handler' but I can't account
-#   for all possible situations - CF
 
 
 import bson, pymongo, pyodbc, sys
@@ -1105,16 +1100,11 @@ class MongoProvider(DatabaseProvider):
             raise DBError(f'ERROR: {str(e)}')
 
 
-class SQLServerProvider:
-    """Defines a provider for MS SQL Server."""
-
-    # The batch size to use when inserting
-    BATCH_SIZE = 100
-
-    # The number of documents to return in a single database call
-    DOC_LIMIT= 100
-
-
+class _GenericSQLProvider(DatabaseProvider):
+    """Defines a generic SQL database provider. Override the methods
+    provided by this class in subclasses as necessary.
+    """
+    
     def __init__(self, conn_str, db):
         """Returns an instance of a DatabaseProvider. Do not call this function.
         All of the methods defined by the DatabaseProvider class will raise a
@@ -1205,8 +1195,8 @@ class SQLServerProvider:
         count = 0
         try:
             with self._conn.cursor() as cursor:
-                count += cursor.execute('DELETE FROM READINGS WHERE groupid=?', (groupid))
                 count += cursor.execute('DELETE FROM SENSORS WHERE groupid=?', (groupid))
+                count += cursor.execute('DELETE FROM READINGS WHERE groupid=?', (groupid))
                 count += cursor.execute('DELETE FROM GROUPS WHERE groupid=?', (groupid))
         except Exception as e:
             self._conn.rollback()
@@ -1314,8 +1304,9 @@ class SQLServerProvider:
             raise DBError('ERROR: Cannot delete sensor, database connection is not open!')
         count = 0
         try:
-            count += cursor.execute('DELETE FROM READINGS WHERE groupid=? AND sensorid=?', (groupid, sensorid))
-            count += cursor.execute('DELETE FROM SENSORS WHERE groupid=? AND sensorid=?', (groupid, sensorid))
+            with self._conn.cursor() as cursor:
+                count += cursor.execute('DELETE FROM READINGS WHERE groupid=? AND sensorid=?', (groupid, sensorid))
+                count += cursor.execute('DELETE FROM SENSORS WHERE groupid=? AND sensorid=?', (groupid, sensorid))
         except Exception as e:
             self._conn.rollback()
             raise DBError(f'ERROR: {str(e)}')
@@ -1340,7 +1331,7 @@ class SQLServerProvider:
                     return False
                 return True
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def does_rtype_exist(self, rtypeid):
@@ -1360,7 +1351,7 @@ class SQLServerProvider:
                     return False
                 return True
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def does_sensor_exist(self, sensorid, groupid):
@@ -1381,7 +1372,7 @@ class SQLServerProvider:
                     return False
                 return True
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def find_max_groupid(self):
@@ -1392,7 +1383,7 @@ class SQLServerProvider:
             with self._conn.cursor() as cursor:
                 return cursor.execute('SELECT MAX(groupid) FROM GROUPS').fetchone()
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def find_max_sensorid_in_group(self, groupid):
@@ -1408,7 +1399,7 @@ class SQLServerProvider:
             with self._conn.cursor() as cursor:
                 return cursor.execute('SELECT MAX(sensorid) FROM SENSORS').fetchone()
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_groups(self):
@@ -1420,7 +1411,7 @@ class SQLServerProvider:
                 for row in cursor.execute('SELECT * FROM GROUPS').fetchall():
                     yield row
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_rtypes(self):
@@ -1432,7 +1423,7 @@ class SQLServerProvider:
                 for row in cursor.execute('SELECT * FROM RTYPES').fetchall():
                     yield row
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_sensors(self, groupid):
@@ -1448,10 +1439,10 @@ class SQLServerProvider:
                 for row in cursor.execute('SELECT * FROM SENSORS').fetchall():
                     yield row
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
-    async def get_readings(self, sensorid, groupid, rtypeid=None, limit=DOC_LIMIT):
+    async def get_readings(self, sensorid, groupid, rtypeid=None, limit=DatabaseProvider.DOC_LIMIT):
         """Generator function for retrieving readings from the database.
 
         Args:
@@ -1473,7 +1464,7 @@ class SQLServerProvider:
                 for row in cursor.execute(query, params).fetchall():
                     yield row
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def insert_group(self, groupid, alias):
@@ -1490,7 +1481,7 @@ class SQLServerProvider:
                 cursor.execute('INSERT INTO GROUPS VALUES (groupid=?, alias=?)', (groupid, alias))
         except Exception as e:
             self._conn.rollback()
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
         finally:
             self._conn.commit()
 
@@ -1506,7 +1497,7 @@ class SQLServerProvider:
         self.insert_readings([reading])
 
 
-    async def insert_readings(self, readings, batch_size=BATCH_SIZE):
+    async def insert_readings(self, readings, batch_size=DatabaseProvider.BATCH_SIZE):
         """Inserts multiple readings into the database.
 
         Args:
@@ -1526,7 +1517,7 @@ class SQLServerProvider:
                     cursor.execute('INSERT INTO READINGS VALUES (groupid=?, sensorid=?, rtypeid=?, ts=?, val=?)', (groupid, sensorid, rtypeid, ts, val))
         except Exception as e:
             self._conn.rollback()
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
         finally:
             self._conn.commit()
 
@@ -1546,7 +1537,7 @@ class SQLServerProvider:
                 cursor.execute('INSERT INTO SENSORS VALUES (sensorid=?, groupid=?, alias=?)', (sensorid, groupid, alias))
         except Exception as e:
             self._conn.rollback()
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
         finally:
             self._conn.commit()
 
@@ -1557,8 +1548,8 @@ class SQLServerProvider:
             try:
                 self._conn = pyodbc.connect(self._conn_str)
                 self._open = True
-            except pyodbc.DatabaseError:
-                raise DBError('ERROR: An error occurred connecting to the SQL Server instance specified by the connection string!')
+            except Exception as e:
+                raise DBError(f'ERROR: {str(e)}')
 
 
     async def stats_group(self, groupid, rtypeid, start_ts=None, end_ts=None):
@@ -1585,7 +1576,7 @@ class SQLServerProvider:
                 for row in cursor.execute('SELECT AVG(val), MAX(val), MIN(val), sensorid, groupid FROM READINGS WHERE groupid=? AND rtypeid=? AND ts>=? and ts<? GROUPBY sensorid, groupid', (groupid, rtypeid, start_ts, end_ts)).fetchall():
                     yield row
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def stats_sensor(self, sensorid, groupid, rtypeid, start_ts, end_ts):
@@ -1607,9 +1598,9 @@ class SQLServerProvider:
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
-                return cursor.execute('SELECT AVG(val), MAX(val), MIN(val) WHERE sensorid=? AND groupid=? AND rtypeid=? AND ts>=? AND ts<?', (sensorid, groupid, rtypeid, ts)).fetchcone()
+                return cursor.execute('SELECT AVG(val), MAX(val), MIN(val) WHERE sensorid=? AND groupid=? AND rtypeid=? AND ts>=? AND ts<?', (sensorid, groupid, rtypeid, ts)).fetchone()
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
 
 
     async def get_readings_by_period(self, sensorid, groupid, start_ts, end_ts):
@@ -1629,4 +1620,52 @@ class SQLServerProvider:
                 for row in cursor.execute().fetchall('SELECT * FROM READINGS WHERE sensorid=? AND groupid=? AND ts >= ? AND ts < ? ORDER BY ts DESC', (sensorid, groupid, start_ts, end_ts)):
                     yield row
         except Exception as e:
-            raise DBError(str(e))
+            raise DBError(f'ERROR: {str(e)}')
+
+
+class PostGresProvider(_GenericSQLProvider):
+    """Defines a provider for a PostGres SQL server instance.
+    """
+
+    def __init__(self, conn_str, db):
+        """Returns an instance of a DatabaseProvider. Do not call this function.
+        All of the methods defined by the DatabaseProvider class will raise a
+        NotImplementedError when called.
+
+        Args:
+            conn_str (str): The connection string for the database server.
+            db (str): The name of the Senslify database.
+        """
+        _GenericSQLProvider.__init__(self, conn_str, db)
+
+
+class SQLServerProvider(_GenericSQLProvider):
+    """Defines a provider for a MS SQL Server instance."""
+
+    def __init__(self, conn_str, db):
+        """Returns an instance of a DatabaseProvider. Do not call this function.
+        All of the methods defined by the DatabaseProvider class will raise a
+        NotImplementedError when called.
+
+        Args:
+            conn_str (str): The connection string for the database server.
+            db (str): The name of the Senslify database.
+        """
+        _GenericSQLProvider.__init__(self, conn_str, db)
+
+
+    def open(self):
+        """Opens a connection to the backing database server."""
+        if not self._open:
+            try:
+                self._conn = pyodbc.connect(self._conn_str)
+                # PGSQL supports single encoding for all text data by default - manually specify utf-8 for 
+                #   Python compatibility
+                self._conn.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
+                self._conn.setencoding(encoding='utf-8')
+                # PGSQL odbc driver only supports 255-byte max varchar/wvarcharsize severely limiting
+                #   write performance - this fixes the issue
+                self._conn.maxwrite = 1024 * 1024 * 1024
+                self._open = True
+            except Exception as e:
+                raise DBError(f'ERROR: {str(e)}')
