@@ -20,9 +20,12 @@
 #   by the DatabaseProvider class are asynchronous. As such, you will need
 #   to utilize an async compatible database connector when inheriting
 #   from the class.
-# The MongoProvider class utilizes provides implementations of the
+# The MongoProvider class provides implementations of the
 #   DatabaseProvider methods in the context of MongoDB and is the default
 #   provider for the Senslify web application.
+# The SQLServerProvider class provides implementations of the 
+#   DatabaseProvider methods in the context of Microsoft SQL Server and is
+#   a secondary provider from the class.
 
 # TODO: Also note that the database is intentionally unsecured. Future
 #   future maintainers *should* (shall) implement security on the database
