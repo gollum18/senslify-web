@@ -26,7 +26,9 @@ import config, simplejson
 
 # change the Provider import here if you want to use different one
 #   You'll need to change it below too where I have marked
-from senslify.db import database_shutdown_handler, MongoProvider
+from senslify.db import (
+    database_shutdown_handler, MongoProvider, PostGresProvider, SQLServerProvider
+)
 from senslify.errors import DBError, traceback_str
 
 # import the various route handlers
@@ -37,6 +39,37 @@ from senslify.sockets import socket_shutdown_handler, ws_handler
 
 # import the filters module, import filters on an as needed basis
 import senslify.filters
+
+
+def create_db(conn_str, db_provider):
+    """Returns an instance of a DatabaseProvider class based on the value of \'db_provider\'.
+    \'conn_str\' must be a suitable connection string for the appropriate database
+    provider. Both \'db_provider\' and \'conn_str\' are specified in the Senslify configuration
+    file. Do not include the username or password in \'conn_str\'. This function
+    will prompt you for it, if it is required.
+
+    Args:
+        conn_str (str): The base connection string.
+        db_provider (str): The database provider to use.
+
+    Returns:
+        (DatabaseProvider): An instance of a subclass of the DatabaseProvider class.
+    """
+    username = None
+    password = None
+    auth_required = input('Do we require a username and password to connect to the primary database server? [y|n]: ').lower()
+    if auth_required == 'y':
+        username = input('Username: ')
+        password = getpass.getpass()
+    if db_provider == 'MONGO':
+        return MongoProvider(conn_str, username=username, password=password)
+    elif db_provider == 'SQL_SERVER' or db == 'POSTGRES':
+        if username and password:
+            conn_str += f'UID={username};PWD={password};'
+        if db_provider == 'SQL_SERVER': return SQLServerProvider(conn_str)
+        elif db_provider == 'POSTGRES': return PostGresProvider(conn_str)
+    else:
+        raise ValueError('ERROR: Invalid db specified in configuration file! Must be one of \{\'MONGO\', \'SQL_SERVER\', \'POSTGRES\'\}!')
 
 
 def init_service_worker(timeout=7):
@@ -104,26 +137,14 @@ def build_app(config_file='./senslify/config/senslify.conf'):
     print('Initializing database connection...')
     # change the provider here if you want to use a different provider
     try:
-        username = None
-        password = None
-        auth_required = input('Do we require a username and password to connect to the primary database server? [y|n]: ').lower()
-        if auth_required == 'y':
-            username = input('Username: ')
-            password = getpass.getpass()
-        app['db'] = MongoProvider(
-            conn_str=app['config'].mongo_conn_str,
-            username=username,
-            password=password
-        )
-        username = None
-        password = None
+        app['db'] = create_db(app['config'].conn_str, app['config'].db_provider)
         app['db'].open()
         app['db'].init()
-    except DBError as e:
+    except Exception as e:
         if app['config'].debug:
             print(traceback_str(e))
         else:
-            print('ERROR: Unable to connect to the MongoDB instance, cannot continue!')
+            print('ERROR: Unable to connect to the primary database, cannot continue!')
         sys.exit(-1)
 
     # setup the ws rooms
