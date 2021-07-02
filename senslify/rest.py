@@ -182,9 +182,11 @@ async def _provision_handler(request, params):
             sensor_alias = _generate_alias()
         group_inserted = False
         try:
-            if not await request.app['db'].does_group_exist(groupid):
-                # require that the group exists
-                return generate_error(f'ERROR: No group with identifer \'{groupid}\' exists!', 400)
+            if 'sensorid' in params: 
+                sensorid = int(params['groupid'])
+                if not await request.app['db'].does_sensor_exist(sensorid, groupid):
+                    # require that the group exists
+                    return generate_error(f'ERROR: No sensor with identifier \'{sensorid}\' from group \'{groupid}\' exists!', 400)
             else:
                 doc = await request.app['db'].find_max_sensorid_in_group(groupid)
                 max_sensorid = int(doc['max'])
@@ -204,14 +206,17 @@ async def _provision_handler(request, params):
             resp_body['group_alias'] = group_alias
         return aiohttp.web.Response(text=simplejson.dumps(resp_body), status=200)
     elif target == 'group':
+
         if 'alias' in params:
             group_alias = params['alias']
         else:
             group_alias = _generate_alias()
         try:
-            if await request.app['db'].does_group_exist(groupid):
-                # require that the group does not exist
-                return generate_error(f'ERROR: Group with identifer \'{groupid}\' already exists!', 400)
+            if 'groupid' in params: 
+                groupid = int(params['groupid'])
+                if not await request.app['db'].does_group_exist(groupid):
+                    # require that the group exists
+                    return generate_error(f'ERROR: No group with identifier \'{groupid}\' exists!', 400)
             else:
                 doc = await request.app['db'].find_max_groupid(group)
                 max_groupid = int(doc['max'])

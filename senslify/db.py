@@ -834,7 +834,8 @@ class MongoProvider(DatabaseProvider):
                     }
                 )
         except Exception as e:
-            raise DBError(f'ERROR: {str(e)}')
+            return False, DBError(f'ERROR: {str(e)}')
+        return True, None
 
 
     async def insert_readings(self, readings, batch_size=DatabaseProvider.BATCH_SIZE):

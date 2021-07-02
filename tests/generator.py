@@ -25,6 +25,7 @@ ip_addr = args.ip_addr
 json_rqst = simplejson.dumps({
     'cmd': 'provision',
     'params': {
+        'target': 'group',
         'groupid': groupid
     }
 })
@@ -32,14 +33,28 @@ resp = requests.post(ip_addr + '/rest', data=json_rqst)
 if resp.status_code == 403:
     print(resp.text)
     sys.exit(1)
-json = resp.json()
-sensorid = int(json['sensorid'])
-sensor_alias = json['sensor_alias']
-if 'group_alias' in json:
-    group_alias = json['group_alias']
+group_json = resp.json()
+groupid = int(group_json['groupid'])
+if 'group_alias' in group_json:
+    group_alias = group_json['group_alias']
 
-print(f'SensorID: {sensorid}')
-print(f'Sensor Alias: {sensor_alias}')
+
+json_rqst = simplejson.dumps({
+    'cmd': 'provision',
+    'params': {
+        'target': 'sensor',
+        'groupid': groupid
+    }
+})
+resp = requests.post(ip_addr + '/rest', data=json_rqst)
+if resp.status_code == 403:
+    print(resp.text)
+    sys.exit(1)
+sensor_json = resp.json()
+sensorid = int(sensor_json['sensorid'])
+if 'sensor_alias' in sensor_json:
+    sensor_alias = sensor_json['sensor_alias']
+
 
 # repeatedly generate and upload sensor data per the given interval
 while True:

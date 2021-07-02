@@ -387,7 +387,7 @@
                     
             // add the new reading to the chart
             rtChart.data.datasets[0].data.push({
-                x: moment.unix(resp.readings[0].ts).utc(),
+                x: Date.parse(moment.unix(resp.readings[0].ts).utc()),
                 y: resp.readings[0].val
             });
             
@@ -647,8 +647,8 @@
             }
 
             // convert the start and end dates over to moment
-            start_ts = moment(start_date).format('X');
-            end_ts = moment(end_date).format('X');
+            start_ts = moment(start_date).format('x');
+            end_ts = moment(end_date).format('x');
 
             // construct the message for the server
             let msg = {
@@ -681,8 +681,8 @@
             }
             
             // convert the start and end dates over to moment
-            start_ts = moment(start_date).format('X');
-            end_ts = moment(end_date).format('X');
+            start_ts = moment(start_date).format('x');
+            end_ts = moment(end_date).format('x');
             
             // construct the message for the server
             let msg = {
