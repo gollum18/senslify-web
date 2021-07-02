@@ -40,6 +40,7 @@ def _generate_alias(n=3):
     '''
     if n <= 0: n = 3
     words = [word_gen.get_random_word() for i in range(n)]
+    words = [w for w in words if w]
     alias = '-'.join(words)
     return alias
 

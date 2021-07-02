@@ -1,11 +1,14 @@
 {% extends 'base.jinja2' %}
 
 {% block head %}
+<!-- Pull down ChartJS for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.4.0/dist/chart.min.js"></script>
     <!-- Make sure to test the new versions of these libraries prior to upgrading them. -->
-    <!-- Pull down ChartJS for graphing and Moment for time -->
-    <script src="https://cdn.jsdelivr.net/combine/npm/moment@2,npm/chart.js@2"></script>
-    <!-- ChartJS Realtime Extension -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@1.8.0/dist/chartjs-plugin-streaming.min.js"></script>
+    <!-- Luxon - Moment was deprecated in favor of it -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@1.27.0/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.0.0/dist/chartjs-adapter-luxon.min.js"></script>    
+    <!-- ChartJS Streaming plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js"></script>
     <!-- DownloadJS Extension -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
 {% endblock %}
@@ -136,7 +139,7 @@
       <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 id="download_header">Download readings for sensor \'{{ alias }}\':</h5>
+            <h5 id="download_header">Download readings for sensor '{{ alias }}'':</h5>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -377,24 +380,19 @@
                     .addClass("list-group-item active")
                     .text(resp.readings[0].rstring)
                     .prependTo($("#list_readings"));
-                    
-            // remove the last element from the chart if we are at the limit
-            //  this should fix the memory-expansion bug in browsers
-            if (rtChart.data.datasets[0].data.length === rlim) {
-                // perform reverse of push() operation
-                rtChart.data.datasets[0].data.shift();
-            }
-                    
+
+            let ts = luxon.DateTime.fromMillis(resp.readings[0].ts*1000).toUTC().toLocaleString(luxon.DateTime.TIME_WITH_SECONDS);
+            console.log("LUXON: "+ts);
+
             // add the new reading to the chart
             rtChart.data.datasets[0].data.push({
-                x: Date.parse(moment.unix(resp.readings[0].ts).utc()),
+                // timestamp is unix time, need to convert to millis for luxon
+                x: ts,
                 y: resp.readings[0].val
             });
             
             // update the chart, keeping the current animation
-            rtChart.update({
-                preservation: true
-            });
+            rtChart.update('quiet');
         }
 
         function downloadHandler(resp) {
@@ -540,32 +538,24 @@
                 type: 'line',
                 data: {
                     datasets: [{
-                        label: "Value over Time",
-                        backgroundColor: "rgb(255, 99, 132)",
-                        borderColor: "rgb(255, 99, 132)",
+                        label: 'Value over Time',
+                        borderColor: '#33b5e5',
+                        pointBackgroundColor: '#168eba',
                         fill: false,
                         data: []
                     }]
                 },
                 options: {
-                    responsiveness: true,
-                    maintainAspectRatio: false,
-                    title: {
-                        display: true,
-                        text: "Time Series for Sensor '{{ alias }}'"
-                    },
-                    // enable scaling in realtime
                     scales: {
-                        xAxes: [{
+                        xAxis: {
                             type: 'realtime',
-                            distribution: "series",
-                            display: true
-                        }],
-                        yAxes: [{
-                            type: 'linear',
-                            display: true
-                        }]
-                    }
+                            time: {
+                                parser: "h:mm:ss a"
+                            }
+                        }
+                    },
+                    responsive: true,
+                    maintainAspectRatio: false
                 }
             });
         }
@@ -646,9 +636,9 @@
                 return;
             }
 
-            // convert the start and end dates over to moment
-            start_ts = moment(start_date).format('x');
-            end_ts = moment(end_date).format('x');
+            // convert the start and end dates over to luxon
+            let start_ts = luxon.DateTime.fromISO(start_date).toMillis()/1000;
+            let end_ts = luxon.DateTime.fromISO(end_date).toMillis()/1000;
 
             // construct the message for the server
             let msg = {
@@ -681,8 +671,8 @@
             }
             
             // convert the start and end dates over to moment
-            start_ts = moment(start_date).format('x');
-            end_ts = moment(end_date).format('x');
+            let start_ts = luxon.DateTime.fromISO(start_date).toMillis()/1000;
+            let end_ts = luxon.DateTime.fromISO(end_date).toMillis()/1000;
             
             // construct the message for the server
             let msg = {
