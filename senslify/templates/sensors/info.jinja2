@@ -384,7 +384,7 @@
             // add the new reading to the chart
             rtChart.data.datasets[0].data.push({
                 // timestamp is unix time, need to convert to millis for luxon
-                x: luxon.DateTime.fromMillis(resp.readings[0].ts*1000).toUTC().toLocaleString(luxon.DateTime.TIME_WITH_SECONDS);,
+                x: luxon.DateTime.fromMillis(resp.readings[0].ts*1000).toUTC().toLocaleString(luxon.DateTime.TIME_WITH_SECONDS),
                 y: resp.readings[0].val
             });
             
