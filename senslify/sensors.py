@@ -115,7 +115,8 @@ async def info_handler(request):
             'max_join_attempts': max_join_attempts,
             'max_reading_deviation': max_reading_deviation,
             'start_date': start,
-            'end_date': end
+            'end_date': end,
+            'referer_url':  request.headers['Referer']
         }
 
 
@@ -152,5 +153,6 @@ async def sensors_handler(request):
     else:
         return {
             'title': f'Sensors for group \'{alias}\'',
-            'sensors': sensors
+            'sensors': sensors,
+            'referer_url': request.headers['Referer']
         }

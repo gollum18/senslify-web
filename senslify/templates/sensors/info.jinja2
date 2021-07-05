@@ -13,14 +13,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
 {% endblock %}
 
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{{ url('index') }}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{{ referer_url }}">Sensor Listings</a></li>
+    <li class="breadcrumb-item active">Sensor Information</li>
+{% endblock %}
+
 {% block header %}
-    <div class="container-fluid">
-        <div class="row">
-            <h2>{{ title }} - Senslify</h2>
-        </div>
-        <div class="row">
-            <h4 id="generic_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
-        </div>
+    <div class="row">
+        <h4 id="generic_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
     </div>
 {% endblock %}
 
@@ -28,16 +29,16 @@
     <!-- This section defines the stats display for real-time stats. -->
     <section class="container-fluid">
         <div class="row">
-            <h3>Real-time stats for Sensor '{{ alias }}':</h3>
+            <h3>Real-time Statistics for Sensor '{{ alias }}':</h3>
         </div>
         <div class="row">
             <table class="table">
-                <tr>
+                <tr class="table-primary">
                     <th scope="col">Average</th>
                     <th scope="col">Minimum</th>
                     <th scope="col">Maximum</th>
                 </tr>
-                <tr>
+                <tr class="table-light">
                     <td id="rt_stats_avg">0</td>
                     <td id="rt_stats_min">0</td>
                     <td id="rt_stats_max">0</td>
@@ -45,18 +46,26 @@
             </table>
         </div>
         <div class=container-fluid>
-            <div class="row">
-                <div class="col-xs-6 pr-3">
+            <div class="row align-items-start">
+                <div class="col">
+                    <!-- Used to indicate the reading type to send from server -->
+                    <select id="sel_rtype" class="form-select" onchange="onStreamChanged();">
+                        {% for rtype in rtypes %}
+                            <option value="{{ rtype.rtypeid }}">{{ rtype.rtype }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
                     <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#statsModal">
                     View Historical Stats
                     </button>
                 </div>
-                <div class="col-xs-6 pl-3 pr-3">
+                <div class="col">
                     <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#downloadModal">
                     Download Sensor Readings
                     </button>
                 </div>
-                <div class="col-xs-6 pl-3">
+                <div class="col">
                     <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#alertsModal">
                     View Sensor Alerts
                     </button>
@@ -78,13 +87,7 @@
             <h6>Note: Live display will not update if the sensor is offline.</h6>
         </div>
         <div class="row">
-            <!-- Used to indicate the reading type to send from server -->
-            <label for="sel_rtype">Reading: </label>
-            <select id="sel_rtype" onchange="onStreamChanged();">
-                {% for rtype in rtypes %}
-                    <option value="{{ rtype.rtypeid }}">{{ rtype.rtype }}</option>
-                {% endfor %}
-            </select>
+            
         </div>
     </section>
     <section class="container-fluid">
@@ -103,12 +106,12 @@
           </div>
           <div class="modal-body">
             <table class="table">
-                <tr>
+                <tr class="table-primary">
                     <th scope="col">Average</th>
                     <th scope="col">Minimum</th>
                     <th scope="col">Maximum</th>
                 </tr>
-                <tr>
+                <tr class="table-light">
                     <td id="sel_stats_avg">0</td>
                     <td id="sel_stats_min">0</td>
                     <td id="sel_stats_max">0</td>

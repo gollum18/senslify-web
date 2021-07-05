@@ -64,6 +64,14 @@ able to implement their own database interface on top of a connector of their
 choice, as long as the connector is async compatible.
 
 
+## Roadmap
+The following lists the features I plan to implement in the future:
+- Users and authentication
+- User groups and sensors
+- API authentication tokens
+- User registration and account management
+
+
 ## Documentation
 Much of the documentation for this project is auto-generated via Sphinx.
 However, there are certain documents (found in the 'Root/Docs' folder) that 

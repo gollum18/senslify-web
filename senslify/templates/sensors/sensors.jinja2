@@ -2,19 +2,25 @@
 
 {% block head %}{% endblock %}
 
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{{ url('index') }}">Home</a></li>
+    <li class="breadcrumb-item" active>Sensor Listings</li>
+{% endblock %}
+
 {% block header %}
-    <h1>{{ title }} - Senslify</h1>
     <h5>Select a sensor from the list below to view it live:</h3>
 {% endblock %}
 {% block content %}
-    <ul id="sensor_list">
-    {% for sensor in sensors %}
-        <li>
-            <a href="{{ sensor.url }}" alt="Sensor: {{ sensor.alias }}">
-                Sensor: {{ sensor.alias }}
-            </a>
-        </li>
-    {% endfor %}
-    </ul>
+    <div class="container-fluid">
+        <div class="row w-25">
+            <ul class="list-group list-group-hover">
+            {% for sensor in sensors %}
+                <a class="list-group-item list-group-item-action" href="{{ sensor.url }}" alt="Sensor: {{ sensor.alias }}">
+                    Sensor: {{ sensor.alias }}
+                </a>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
 {% endblock %}
 {% block footer %}{% endblock %}
