@@ -41,7 +41,7 @@ from senslify.sockets import socket_shutdown_handler, ws_handler
 import senslify.filters
 
 
-def create_db(conn_str, db_provider):
+def create_db(conn_str, db_provider, auth_required):
     """Returns an instance of a DatabaseProvider class based on the value of \'db_provider\'.
     \'conn_str\' must be a suitable connection string for the appropriate database
     provider. Both \'db_provider\' and \'conn_str\' are specified in the Senslify configuration
@@ -51,14 +51,14 @@ def create_db(conn_str, db_provider):
     Args:
         conn_str (str): The base connection string.
         db_provider (str): The database provider to use.
+        auth_required (boolean): Is authentication required to connect to the database?
 
     Returns:
         (DatabaseProvider): An instance of a subclass of the DatabaseProvider class.
     """
     username = None
     password = None
-    auth_required = input('Do we require a username and password to connect to the primary database server? [y|n]: ').lower()
-    if auth_required == 'y':
+    if auth_required:
         username = input('Username: ')
         password = getpass.getpass()
     if db_provider == 'MONGO':
@@ -66,6 +66,8 @@ def create_db(conn_str, db_provider):
     elif db_provider == 'SQL_SERVER' or db == 'POSTGRES':
         if username and password:
             conn_str += f'UID={username};PWD={password};'
+            username = None
+            password = None
         if db_provider == 'SQL_SERVER': return SQLServerProvider(conn_str)
         elif db_provider == 'POSTGRES': return PostGresProvider(conn_str)
     else:
@@ -137,7 +139,11 @@ def build_app(config_file='./senslify/config/senslify.conf'):
     print('Initializing database connection...')
     # change the provider here if you want to use a different provider
     try:
-        app['db'] = create_db(app['config'].conn_str, app['config'].db_provider)
+        app['db'] = create_db(
+            app['config'].conn_str, 
+            app['config'].db_provider,
+            app['config'].auth_required
+        )
         app['db'].open()
         app['db'].init()
     except Exception as e:
@@ -187,7 +193,12 @@ def main():
     else:
         app = build_app()
     # launch the web app
-    aiohttp.web.run_app(app, host=get_local_ip(), port=app['config'].port)
+    ip = app['config'].ip
+    if ip:
+        host = ip
+    else:
+        host = get_local_ip()
+    aiohttp.web.run_app(app, host=host, port=app['config'].port)
 
 
 if __name__ == '__main__':
