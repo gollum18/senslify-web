@@ -192,22 +192,13 @@ async def _verify_provision_request(request, params):
     target = params['target']
     if target != 'sensor' and target != 'group':
         return False, 'ERROR: Invalid \'target\' specified! Must be one of \{\'sensor\', \'group\'\}.'
-    if target == 'group':
+    if target == 'sensor':
         if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
-        try:
+        try: 
             groupid = int(params['groupid'])
         except Exception:
             return False, 'ERROR: Request parameter \'groupid\' must be an integer!'
-        if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
-        if await request.app['db'].does_group_exist(groupid):
-            return False, 'ERROR: Group is already provisioned into the system.'
-    elif target == 'sensor':
-        if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field'
-        try:
-            sensorid = int(params['sensorid'])
-        except Exception:
-            return False, 'ERROR: Request parameter \'sensorid\' must be an integer!'
-        if sensorid < 0: return False, 'ERROR" Request parameter \'sensorid\' must be >= 0!'
+        if groupid <= 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
     if 'alias' in params:
         if not params['alias']: return False, 'ERROR: Request parameter \'alias\' must contain at least one (1) character!'
     return True, None

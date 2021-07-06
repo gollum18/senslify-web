@@ -182,19 +182,13 @@ async def _provision_handler(request, params):
             sensor_alias = _generate_alias()
         group_inserted = False
         try:
-            if 'sensorid' in params: 
-                sensorid = int(params['groupid'])
-                if not await request.app['db'].does_sensor_exist(sensorid, groupid):
-                    # require that the group exists
-                    return generate_error(f'ERROR: No sensor with identifier \'{sensorid}\' from group \'{groupid}\' exists!', 400)
-            else:
-                max_sensorid = None
-                try:
-                    doc = await request.app['db'].find_max_sensorid_in_group(groupid)
-                    max_sensorid = int(doc['max'])
-                except DBError:
-                    max_sensorid = -1
-                sensorid = max_sensorid + 1
+            max_sensorid = None
+            try:
+                doc = await request.app['db'].find_max_sensorid_in_group(groupid)
+                max_sensorid = int(doc['max'])
+            except DBError:
+                max_sensorid = -1
+            sensorid = max_sensorid + 1
             result, e = await request.app['db'].insert_sensor(sensorid, groupid, sensor_alias)
             if e:
                 raise e
@@ -215,19 +209,13 @@ async def _provision_handler(request, params):
         else:
             group_alias = _generate_alias()
         try:
-            if 'groupid' in params: 
-                groupid = int(params['groupid'])
-                if not await request.app['db'].does_group_exist(groupid):
-                    # require that the group exists
-                    return generate_error(f'ERROR: No group with identifier \'{groupid}\' exists!', 400)
-            else:
-                max_groupid = None
-                try:
-                    doc = await request.app['db'].find_max_groupid(group)
-                    max_groupid = int(doc['max'])
-                except DBError:
-                    max_groupid = -1
-                groupid = max_groupid + 1
+            max_groupid = None
+            try:
+                doc = await request.app['db'].find_max_groupid()
+                max_groupid = int(doc['max'])
+            except DBError:
+                max_groupid = -1
+            groupid = max_groupid + 1
             result, e = await request.app['db'].insert_group(groupid, group_alias)
             if e:
                 raise e
