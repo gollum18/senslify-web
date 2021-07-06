@@ -699,7 +699,9 @@ class MongoProvider(DatabaseProvider):
         try:
             with self._conn[self._db].groups.aggregate(pipeline,
                 allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                return cursor.next()
+                doc = cursor.next()
+                if not doc: raise DBError
+                return doc
         except Exception as e:
             raise DBError(f'ERROR: {str(e)}')
 
@@ -735,7 +737,9 @@ class MongoProvider(DatabaseProvider):
         try:
             with self._conn[self._db].sensors.aggregate(pipeline,
                 allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                return cursor.next()
+                doc = cursor.next()
+                if not doc: raise DBError
+                return doc
         except Exception as e:
             raise DBError(f'ERROR: {str(e)}')
 
@@ -1382,7 +1386,9 @@ class _GenericSQLProvider(DatabaseProvider):
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
-                return cursor.execute('SELECT MAX(groupid) FROM GROUPS').fetchone()
+                row = cursor.execute('SELECT MAX(groupid) FROM GROUPS').fetchone()
+                if not row: raise DBError
+                return row
         except Exception as e:
             raise DBError(f'ERROR: {str(e)}')
 
@@ -1398,7 +1404,9 @@ class _GenericSQLProvider(DatabaseProvider):
             raise DBError('ERROR: Cannot determine if group exists. Database connection is not open!')
         try:
             with self._conn.cursor() as cursor:
-                return cursor.execute('SELECT MAX(sensorid) FROM SENSORS').fetchone()
+                row = cursor.execute('SELECT MAX(sensorid) FROM SENSORS').fetchone()
+                if not row: raise DBError
+                return row
         except Exception as e:
             raise DBError(f'ERROR: {str(e)}')
 
