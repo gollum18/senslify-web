@@ -211,7 +211,6 @@ async def _provision_handler(request, params):
             resp_body['group_alias'] = group_alias
         return aiohttp.web.Response(text=simplejson.dumps(resp_body), status=200)
     elif target == 'group':
-
         if 'alias' in params:
             group_alias = params['alias']
         else:

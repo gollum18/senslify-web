@@ -21,7 +21,7 @@
 
 {% block header %}
     <div class="row">
-        <h4 id="generic_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
+        <h4 id="generic_error_control" class="alert alert-danger invisible" role="alert"></h4>
     </div>
 {% endblock %}
 
@@ -40,8 +40,8 @@
                 </tr>
                 <tr class="table-light">
                     <td id="rt_stats_avg">0</td>
-                    <td id="rt_stats_min">0</td>
-                    <td id="rt_stats_max">0</td>
+                    <td id="rt_stats_min">Infinity</td>
+                    <td id="rt_stats_max">-Infinity</td>
                 </tr>
             </table>
         </div>
@@ -111,8 +111,8 @@
                 </tr>
                 <tr class="table-light">
                     <td id="sel_stats_avg">0</td>
-                    <td id="sel_stats_min">0</td>
-                    <td id="sel_stats_max">0</td>
+                    <td id="sel_stats_min">Infinity</td>
+                    <td id="sel_stats_max">-Infiity</td>
                 </tr>
             </table>
           </div>
@@ -131,7 +131,7 @@
                 <input type="button" class="btn btn-primary" value="Get Stats" onclick="onStatsRequested();">
               </div>
               <div class="row">
-                <h4 id="stats_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
+                <h4 id="stats_error_control" class="alert alert-danger invisible" role="alert"></h4>
               </div>
             </div>
           </div>
@@ -163,7 +163,7 @@
                 <input type="button" class="btn btn-primary" value="Download" onclick="onDownloadRequested();">
               </div>
               <div class="row">
-                <h4 id="download_error_control" class="alert alert-danger" role="alert" style="display: none"></h4>
+                <h4 id="download_error_control" class="alert alert-danger invisible" role="alert"></h4>
               </div>
             </div>
           </div>
@@ -284,10 +284,12 @@
             }
             error_control.text(error);
             // h4 default display property is block, this is unchanged by the danger-alert bootstrap class
-            error_control.css('display', 'block');
+            error_control.removeClass("invisible");
+            error_control.addClass("visible");
             setTimeout(() => {
                 error_control.text("");
-                error_control.css('display', 'none');
+                error_control.removeClass("visible");
+                error_control.addClass("invisible");
             }, 5000);
         }
         
@@ -336,9 +338,9 @@
             readingsSoFar += 1;
         
             // get the components we need to update
-            let tdMin = $("rt_stats_min");
-            let tdMax = $("rt_stats_max");
-            let tdAvg = $("rt_stats_avg");
+            let tdMin = $("#rt_stats_min");
+            let tdMax = $("#rt_stats_max");
+            let tdAvg = $("#rt_stats_avg");
             let rlist = $("#list_readings");
             
             // evict the oldest reading if at the limit

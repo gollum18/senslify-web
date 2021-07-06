@@ -449,11 +449,11 @@ class MongoProvider(DatabaseProvider):
                 if input('Senslify Database detected, do you want to delete it? [y|n]: ').lower() == 'y':
                     print('Warning: Deleting Senslify database!')
                     self._conn.drop_database(self._db)
-                    return
                 else:
                     # otherwise exit the method, no initialization needed
                     return
             # create the indexes on the collections in the database
+            print('Initializing Senslify database...')
             self._conn[self._db].readings.create_index([
                 ("sensorid", pymongo.ASCENDING),
                 ("groupid", pymongo.ASCENDING),

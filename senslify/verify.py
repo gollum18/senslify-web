@@ -22,6 +22,16 @@ valid_rest_targets = ('groups', 'rtypes', 'sensors', 'readings')
 
 
 async def _verify_find_request(request, params):
+    """Verifies a received \'find\' REST command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        params (dict-like): A dictionary like object containing the REST command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     target = params['target']
     if target != 'groups' and target != 'rtypes' and target != 'sensors' and target != 'readings':
@@ -53,6 +63,16 @@ async def _verify_find_request(request, params):
 
 
 async def _verify_stats_request(request, params):
+    """Verifies a received RQST_STATS WebSocket command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     if 'rtypeid' not in params: return False, 'ERROR: Request params requires \'rtypeid\' field!'
@@ -85,6 +105,16 @@ async def _verify_stats_request(request, params):
 
 
 async def _verify_download_request(request, params):
+    """Verifies a received RQST_DOWNLOAD WebSocket command or \'download\' REST command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     if 'start_ts' not in params: return False, 'ERROR: Request params requires \'start_ts\' field!'
@@ -108,6 +138,16 @@ async def _verify_download_request(request, params):
 
 
 async def _verify_upload_request(request, params):
+    """Verifies a received \'upload\' REST command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        params (dict-like): A dictionary like object containing the REST command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'readings' not in params: return False, 'ERROR: Request params requires \'readings\' field!'
     readings = params['readings']
     for reading in readings:
@@ -138,19 +178,52 @@ async def _verify_upload_request(request, params):
 
 
 async def _verify_provision_request(request, params):
+    """Verifies a received \'provision\' REST command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        params (dict-like): A dictionary like object containing the REST command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
-    if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
-    try:
-        groupid = int(params['groupid'])
-    except Exception:
-        return False
-    if groupid < 0: return False, 'ERROR: Request paramters \'groupid\' must be >= 0!'
-    if not await request.app['db'].does_group_exist(groupid):
-        return False, 'ERROR: No such group provisioned into the system!'
+    target = params['target']
+    if target != 'sensor' or target != 'group':
+        return False, 'ERROR: Invalid \'target\' specified! Must be one of \{\'sensor\', \'group\'\}.'
+    if target == 'group':
+        if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
+        try:
+            groupid = int(params['groupid'])
+        except Exception:
+            return False, 'ERROR: Request parameter \'groupid\' must be an integer!'
+        if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
+        if await request.app['db'].does_group_exist(groupid):
+            return False, 'ERROR: Group is already provisioned into the system.'
+    elif target == 'sensor':
+        if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field'
+        try:
+            sensorid = int(params['sensorid'])
+        except Exception:
+            return False, 'ERROR: Request parameter \'sensorid\' must be an integer!'
+        if sensorid < 0: return False, 'ERROR" Request parameter \'sensorid\' must be >= 0!'
+    if 'alias' in params:
+        if not params['alias']: return False, 'ERROR: Request parameter \'alias\' must contain at least one (1) character!'
     return True, None
 
 
 async def _verify_join_command(request, params):
+    """Verifies a received RQST_JOIN WebSocket command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'groupid' not in params: return False, 'ERROR: Request requires \'groupid\' field!'
     if 'sensorid' not in params: return False, 'ERROR: Request requires \'sensorid\' field!'
     try:
@@ -168,6 +241,16 @@ async def _verify_join_command(request, params):
 
 
 async def _verify_close_command(request, params):
+    """Verifies a received RQST_CLOSE WebSocket command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'groupid' not in params: return False, 'ERROR: Request requires \'groupid\' field!'
     if 'sensorid' not in params: return False, 'ERROR: Request requires \'sensorid\' field!'
     try:
@@ -185,6 +268,16 @@ async def _verify_close_command(request, params):
 
 
 async def _verify_stream_command(request, params):
+    """Verifies a received RQST_STREAM WebSocket command.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'rtypeid' not in params: return False, 'ERROR: Request requires \'rtypeid\' field!'
     try:
         rtypeid = int(params['rtypeid'])
@@ -197,6 +290,17 @@ async def _verify_stream_command(request, params):
 
 
 async def verify_ws_request(request, json):
+    """Verifies a received WebSocket request. This function routes requests to other verification
+    functions based on the \'cmd\' fielkd specified in the json message accompanying the request.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
     if 'cmd' not in json: return False, 'ERROR: Request requires \'cmd\' field!'
     cmd = json['cmd']
     if cmd == 'RQST_JOIN':
