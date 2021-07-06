@@ -223,6 +223,8 @@
         var rtChart = null;
         // join attempts so far
         var join_attempts = 0;
+        // initial timeout for join requests
+        const join_timeout = 64;
         //
         // Define handlers for the window
         //
@@ -274,6 +276,11 @@
                 error_control = $("#stats_error_control");
             } else if (cmd === "RESP_DOWNLOAD_ERROR") {
                 error_control = $("#download_error_control");
+            } else {
+                return;
+            }
+            if (error.length == 0) {
+                return
             }
             error_control.text(error);
             // h4 default display property is block, this is unchanged by the danger-alert bootstrap class
@@ -294,15 +301,24 @@
          */
         function joinHandler(resp) {
             let join_result = resp.join_result;
+            let exp = 2;
             if (join_result === 'false') {
                 if (join_attempts == max_join_attempts) {
                     // redirect back to the sensor listings page
                     window.history.back();
                 } else {
+                    // implement exponential backoff for join attempts
+                    //  to prevent flooding server with requests
+                    // min timeout is 64ms, max is 512 ms
+                    // steps from:
+                    //  64, 128
+                    //  64, 128, 192, 256
+                    //  64, 128, 192, 256, 320, 384, 446, 512
                     setTimeout(() => {
                         join_attempts += 1;
+                        exp *= 2;
                         sendJoinRequest();
-                    }, 250);
+                    }, join_timeout * (getRandomInt(exp) + 1));
                 }
             }
         }
@@ -558,6 +574,15 @@
                     maintainAspectRatio: false
                 }
             });
+        }
+
+        /**
+         * Returns a random integer in the range [0, max).
+         * @param max The exclusive upper bound on the range to return.
+         * @returns A random number in the range [0, max).
+         */
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
         }
 
         /**
