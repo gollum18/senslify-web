@@ -190,7 +190,7 @@ async def _verify_provision_request(request, params):
     """
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     target = params['target']
-    if target != 'sensor' or target != 'group':
+    if target != 'sensor' and target != 'group':
         return False, 'ERROR: Invalid \'target\' specified! Must be one of \{\'sensor\', \'group\'\}.'
     if target == 'group':
         if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
