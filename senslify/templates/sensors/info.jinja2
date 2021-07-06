@@ -56,17 +56,17 @@
                     </select>
                 </div>
                 <div class="col">
-                    <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#statsModal">
+                    <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#statsModal">
                     View Historical Stats
                     </button>
                 </div>
                 <div class="col">
-                    <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#downloadModal">
+                    <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#downloadModal">
                     Download Sensor Readings
                     </button>
                 </div>
                 <div class="col">
-                    <button type="button" class="btn btn-outline-info" data-toggle="modal" data-target="#alertsModal">
+                    <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#alertsModal">
                     View Sensor Alerts
                     </button>
                 </div>
@@ -100,9 +100,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 id="stats_header"></h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <table class="table">
@@ -143,9 +141,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 id="download_header">Download readings for sensor '{{ alias }}'':</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <div class="container-fluid">
@@ -174,9 +170,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 id="alerts_header">Alerts for sensor '{{ alias }}':</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <div class="container-fluid">
