@@ -143,9 +143,9 @@ async def _stats_handler(request, params):
     resp_body = dict()
     # call the appropriate db handler based on target
     try:
-        if target == 'groups':
+        if target == 'group':
             resp_body['stats'] = await request.db.stats_group(groupid, rtypeid, start_ts, end_ts)
-        elif target == 'sensors':
+        elif target == 'sensor':
             sensorid = int(params['sensorid'])
             resp_body['stats'] = await request.db.stats_sensor(sensorid, groupid, rtypeid, start_ts, end_ts)
     except Exception as e:

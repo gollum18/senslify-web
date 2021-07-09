@@ -85,16 +85,16 @@ async def _verify_stats_request(request, params):
     if 'start_ts' not in params: return False, 'ERROR: Request params requires \'start_ts\' field!'
     if 'end_ts' not in params: return False, 'ERROR: Request params requires \'end_ts\' field!'
     target = params['target']
-    if target != 'groups' and target != 'sensors': 
-        return False, 'ERROR: Request parameter \'target\' must be one of \{\'groups\', \'sensors\'\}!'
-    if target == 'sensors':
+    if target != 'group' and target != 'sensor': 
+        return False, 'ERROR: Request parameter \'target\' must be one of \{\'group\', \'sensor\'\}!'
+    if target == 'sensor':
         if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
     try:
         groupid = int(params['groupid'])
         rtypeid = int(params['rtypeid'])
         start_ts = int(params['start_ts'])
         end_ts = int(params['end_ts'])
-        if target == 'sensors': 
+        if target == 'sensor': 
             sensorid = int(params['sensorid'])
             if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
     except Exception:
@@ -105,7 +105,7 @@ async def _verify_stats_request(request, params):
     if end_ts < 0: return False, 'ERROR: Request parameter \'end_ts\' must be >= 0!'
     if not await request.app['db'].does_group_exist(groupid):
         return False, 'ERROR: No such group provisioned into the system!'
-    if target == 'sensors':
+    if target == 'sensor':
         if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
         if not await request.app['db'].does_sensor_exist(sensorid, groupid):
             return False, 'ERROR: No such sensor provisioned into the system!'
