@@ -32,6 +32,9 @@ async def _verify_find_request(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     target = params['target']
     if target != 'groups' and target != 'rtypes' and target != 'sensors' and target != 'readings':
@@ -73,6 +76,9 @@ async def _verify_stats_request(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     if 'rtypeid' not in params: return False, 'ERROR: Request params requires \'rtypeid\' field!'
@@ -80,7 +86,7 @@ async def _verify_stats_request(request, params):
     if 'end_ts' not in params: return False, 'ERROR: Request params requires \'end_ts\' field!'
     target = params['target']
     if target != 'groups' and target != 'sensors': 
-        return False, 'ERROR: Request parameter \'target\' must be one of \{\'groups\', \'sensors\'\}'
+        return False, 'ERROR: Request parameter \'target\' must be one of \{\'groups\', \'sensors\'\}!'
     if target == 'sensors':
         if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
     try:
@@ -99,6 +105,10 @@ async def _verify_stats_request(request, params):
     if end_ts < 0: return False, 'ERROR: Request parameter \'end_ts\' must be >= 0!'
     if not await request.app['db'].does_group_exist(groupid):
         return False, 'ERROR: No such group provisioned into the system!'
+    if target == 'sensors':
+        if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
+        if not await request.app['db'].does_sensor_exist(sensorid, groupid):
+            return False, 'ERROR: No such sensor provisioned into the system!'
     if not await request.app['db'].does_rtype_exist(rtypeid):
         return False, 'ERROR: No such reading type provisioned into the system!'
     return True, None
@@ -115,6 +125,9 @@ async def _verify_download_request(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'sensorid' not in params: return False, 'ERROR: Request params requires \'sensorid\' field!'
     if 'groupid' not in params: return False, 'ERROR: Request params requires \'groupid\' field!'
     if 'start_ts' not in params: return False, 'ERROR: Request params requires \'start_ts\' field!'
@@ -126,10 +139,10 @@ async def _verify_download_request(request, params):
         end_ts = int(params['end_ts'])
     except Exception:
         return False, 'ERROR: A parameter is of incorrect type!'
-    if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0.'
-    if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
-    if start_ts < 0: return False, 'ERROR: Request parameter \'start_ts\' must be >= 0.'
-    if end_ts < 0: return False, 'ERROR: Request parameter \'start_ts\' must be >= 0.'
+    if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
+    if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
+    if start_ts < 0: return False, 'ERROR: Request parameter \'start_ts\' must be >= 0!'
+    if end_ts < 0: return False, 'ERROR: Request parameter \'end_ts\' must be >= 0!'
     if not await request.app['db'].does_group_exist(groupid):
         return False, 'ERROR: No such group provisioned into the system!'
     if not await request.app['db'].does_sensor_exist(sensorid, groupid):
@@ -148,8 +161,13 @@ async def _verify_upload_request(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'readings' not in params: return False, 'ERROR: Request params requires \'readings\' field!'
     readings = params['readings']
+    if not isinstance(readings, list):
+        return False, 'ERROR: Request parameter \'readings\' must be a JSON array!'
     for reading in readings:
         if 'groupid' not in reading: return False, 'ERROR: Request params requires \'groupid\' field!'
         if 'sensorid' not in reading: return False, 'ERROR: Request params requires \'sensorid\' field!'
@@ -164,10 +182,10 @@ async def _verify_upload_request(request, params):
             ts = int(reading['ts'])
         except Exception:
             return False, 'ERROR: A parameter is of incorrect type!'
-        if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0.'
-        if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0.'
-        if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0.'
-        if ts < 0: return False, 'ERROR: Request parameter \'ts\' must be >= 0.'
+        if groupid < 0: return False, 'ERROR: Request parameter \'groupid\' must be >= 0!'
+        if sensorid < 0: return False, 'ERROR: Request parameter \'sensorid\' must be >= 0!'
+        if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0!'
+        if ts < 0: return False, 'ERROR: Request parameter \'ts\' must be >= 0!'
         if not await request.app['db'].does_group_exist(groupid):
             return False, 'ERROR: No such group provisioned into the system!'
         if not await request.app['db'].does_sensor_exist(sensorid, groupid):
@@ -188,6 +206,9 @@ async def _verify_provision_request(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'target' not in params: return False, 'ERROR: Request params requires \'target\' field!'
     target = params['target']
     if target != 'sensor' and target != 'group':
@@ -215,6 +236,9 @@ async def _verify_join_command(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'groupid' not in params: return False, 'ERROR: Request requires \'groupid\' field!'
     if 'sensorid' not in params: return False, 'ERROR: Request requires \'sensorid\' field!'
     try:
@@ -242,6 +266,9 @@ async def _verify_close_command(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'groupid' not in params: return False, 'ERROR: Request requires \'groupid\' field!'
     if 'sensorid' not in params: return False, 'ERROR: Request requires \'sensorid\' field!'
     try:
@@ -269,42 +296,18 @@ async def _verify_stream_command(request, params):
         (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
         message if the boolean is True, and is None otherwise.
     """
+    if not params: return False, 'ERROR: Request parameters must not be null!'
+    if not isinstance(params, dict):
+        return False, 'ERROR: Request parameters must be a JSON object!'
     if 'rtypeid' not in params: return False, 'ERROR: Request requires \'rtypeid\' field!'
     try:
         rtypeid = int(params['rtypeid'])
     except Exception:
         return False, 'ERROR: A parameter is of incorrect type!'
-    if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0'
+    if rtypeid < 0: return False, 'ERROR: Request parameter \'rtypeid\' must be >= 0!'
     if not await request.app['db'].does_rtype_exist(rtypeid):
         return False, 'ERROR: No such reading type provisioned into the system!'
     return True, None
-
-
-async def verify_ws_request(request, json):
-    """Verifies a received WebSocket request. This function routes requests to other verification
-    functions based on the \'cmd\' fielkd specified in the json message accompanying the request.
-
-    Args:
-        request (aiohttp.Web.Request): The request from the client.
-        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
-
-    Returns:
-        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
-        message if the boolean is True, and is None otherwise.
-    """
-    if 'cmd' not in json: return False, 'ERROR: Request requires \'cmd\' field!'
-    cmd = json['cmd']
-    if cmd == 'RQST_JOIN':
-        return await _verify_join_command(request, json)
-    elif cmd == 'RQST_CLOSE':
-        return await _verify_close_command(request, json)
-    elif cmd == 'RQST_STREAM':
-        return await _verify_stream_command(request, json)
-    elif cmd == 'RQST_SENSOR_STATS':
-        return await _verify_stats_request(request, json)
-    elif cmd == 'RQST_DOWNLOAD':
-        return await _verify_download_request(request, json)
-    else: return False, 'ERROR: \'cmd\' must be one of \{\'RQST_JOIN\', \'RQST_CLOSE\', \'RQST_STREAM\', \'RQST_SENSOR_STATS\', \'RQST_DOWNLOAD\'\}!'
 
 
 async def verify_rest_request(request):
@@ -333,3 +336,30 @@ async def verify_rest_request(request):
     elif cmd == 'provision':
         return await _verify_provision_request(request, params)
     else: return False, 'ERROR: \'cmd\' must be one of \{\'find\', \'stats\', \'download\', \'upload\', \'provision\'\}!'
+
+
+async def verify_ws_request(request, json):
+    """Verifies a received WebSocket request. This function routes requests to other verification
+    functions based on the \'cmd\' fielkd specified in the json message accompanying the request.
+
+    Args:
+        request (aiohttp.Web.Request): The request from the client.
+        json (dict-like): A dictionary like object containing the WebSocket command request parameters.
+
+    Returns:
+        (boolean, str): A boolean indicating if the request is valid. The other parameter is an error
+        message if the boolean is True, and is None otherwise.
+    """
+    if 'cmd' not in json: return False, 'ERROR: Request requires \'cmd\' field!'
+    cmd = json['cmd']
+    if cmd == 'RQST_JOIN':
+        return await _verify_join_command(request, json)
+    elif cmd == 'RQST_CLOSE':
+        return await _verify_close_command(request, json)
+    elif cmd == 'RQST_STREAM':
+        return await _verify_stream_command(request, json)
+    elif cmd == 'RQST_SENSOR_STATS':
+        return await _verify_stats_request(request, json)
+    elif cmd == 'RQST_DOWNLOAD':
+        return await _verify_download_request(request, json)
+    else: return False, 'ERROR: \'cmd\' must be one of \{\'RQST_JOIN\', \'RQST_CLOSE\', \'RQST_STREAM\', \'RQST_SENSOR_STATS\', \'RQST_DOWNLOAD\'\}!'
