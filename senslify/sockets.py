@@ -103,8 +103,9 @@ async def _change_stream(rooms, groupid, sensorid, ws, rtypeid):
     """
     # check if the ws exists, return if so
     if not _does_ws_exist(rooms, groupid, sensorid, ws):
-        return
+        return False
     rooms[(groupid, sensorid)][ws] = int(rtypeid)
+    return True
 
 
 async def message(rooms, groupid, sensorid, msg):
@@ -200,21 +201,25 @@ async def ws_handler(request):
                 groupid = int(js['groupid'])
                 rtypeid = int(js['rtypeid'])
                 # change the stream
-                await _change_stream(request.app['rooms'], groupid, sensorid, ws, rtypeid)
+                status = await _change_stream(request.app['rooms'], groupid, sensorid, ws, rtypeid)
                 # construct a response containing the top 100 readings for the stream
                 resp['cmd'] = 'RESP_STREAM'
-                readings = []
-                try:
-                    async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
-                        reading['rstring'] = filter_reading(reading)
-                        readings.append(reading)
-                except DBError as e:
-                    print(e)
+                if status:
+                    readings = []
+                    try:
+                        async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
+                            reading['rstring'] = filter_reading(reading)
+                            readings.append(reading)
+                    except DBError as e:
+                        print(e)
+                        resp['cmd'] = 'RESP_ERROR'
+                        resp['error'] = 'ERROR: There was an issue retrieving the top 100 readings for the new reading type from the database!'
+                        await ws.send_str(simplejson.dumps(resp))
+                        continue
+                    resp['readings'] = readings
+                else:
                     resp['cmd'] = 'RESP_ERROR'
-                    resp['error'] = 'ERROR: There was an issue retrieving the top 100 readings for the new reading type from the database!'
-                    await ws.send_str(simplejson.dumps(resp))
-                    continue
-                resp['readings'] = readings
+                    resp['error'] = 'ERROR: Unable to change stream!'
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
             # handle requests for getting stats on sensors
