@@ -16,11 +16,6 @@
 import simplejson
 
 
-# used in the rest validation command
-valid_rest_cmds = ('find', 'stats')
-valid_rest_targets = ('groups', 'rtypes', 'sensors', 'readings')
-
-
 async def _verify_find_request(request, params):
     """Verifies a received \'find\' REST command.
 
