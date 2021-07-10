@@ -123,18 +123,18 @@ async def message(rooms, groupid, sensorid, msg):
     # add additional fields to the message
     # create the response object for the websocket
     resp = dict()
-    resp['cmd'] = 'RESP_READING'
-    resp['readings'] = [{
-        'rtypeid': msg['rtypeid'],
-        'ts': msg['ts'],
-        'val': msg['val'],
-        'rstring': msg['rstring']
+    resp["cmd"] = "RESP_READING"
+    resp["readings"] = [{
+        "rtypeid": msg["rtypeid"],
+        "ts": msg["ts"],
+        "val": msg["val"],
+        "rstring": msg["rstring"]
     }]
     try:
         # get the rtype, so we only send to clients that ask for it specifically
-        rtypeid = msg['rtypeid']
+        rtypeid = msg["rtypeid"]
     except KeyError:
-        print("ERROR: KeyError has occurred sending message, 'rtypeid' not found!")
+        print("ERROR: KeyError has occurred sending message, "rtypeid" not found!")
         return
     # steps through all clients in the room
     for ws, rtype in rooms[(groupid, sensorid)].items():
@@ -154,7 +154,7 @@ async def ws_handler(request):
         ws = aiohttp.web.WebSocketResponse(autoclose=False)
         await ws.prepare(request)
     except aiohttp.web.WSServerHandshakeError:
-        return generate_error('ERROR: Unable to establish WebSocket, handshake failed!', 400)
+        return generate_error("ERROR: Unable to establish WebSocket, handshake failed!", 400)
 
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
@@ -162,106 +162,106 @@ async def ws_handler(request):
             #   every value in js will be a string, cast as necessary
             js = None
             resp = dict()
-            resp['cmd'] = ''
+            resp["cmd"] = ""
             try:
                 js = simplejson.loads(msg.data)
             except simplejson.JSONDecodeError:
-                resp['cmd'] = 'RESP_ERROR'
-                resp['error'] = 'ERROR: Request is not a properly formed JSON message!'
+                resp["cmd"] = "RESP_ERROR"
+                resp["error"] = "ERROR: Request is not a properly formed JSON message!"
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
                 continue
             status, reason = await verify_ws_request(request, js)
             if not status:
-                resp['cmd'] = 'RESP_ERROR'
-                resp['error'] = reason
+                resp["cmd"] = "RESP_ERROR"
+                resp["error"] = reason
                 await ws.send_str(simplejson.dumps(resp))
                 continue
-            cmd = js['cmd']
+            cmd = js["cmd"]
             # 
             # adds the requesting websocket as a receiver for messages from
             #   the indicated sensor
-            if cmd == 'RQST_JOIN':
-                sensorid = int(js['sensorid'])
-                groupid = int(js['groupid'])
-                result = await _join(request.app['rooms'], groupid, sensorid, ws)
-                resp['cmd'] = 'RESP_JOIN'
-                resp['join_status'] = result
+            if cmd == "RQST_JOIN":
+                sensorid = int(js["sensorid"])
+                groupid = int(js["groupid"])
+                result = await _join(request.app["rooms"], groupid, sensorid, ws)
+                resp["cmd"] = "RESP_JOIN"
+                resp["join_status"] = result
                 await ws.send_str(simplejson.dumps(resp))
             # close the connection if the client requested it
-            elif cmd == 'RQST_CLOSE':
-                sensorid = int(js['sensorid'])
-                groupid = int(js['groupid'])
-                await _leave(request.app['rooms'], groupid, sensorid, ws)
+            elif cmd == "RQST_CLOSE":
+                sensorid = int(js["sensorid"])
+                groupid = int(js["groupid"])
+                await _leave(request.app["rooms"], groupid, sensorid, ws)
                 await ws.close()
                 break
             # handle requests from users to switch to a different reading type
-            elif cmd == 'RQST_STREAM':
-                sensorid = int(js['sensorid'])
-                groupid = int(js['groupid'])
-                rtypeid = int(js['rtypeid'])
+            elif cmd == "RQST_STREAM":
+                sensorid = int(js["sensorid"])
+                groupid = int(js["groupid"])
+                rtypeid = int(js["rtypeid"])
                 # change the stream
-                status = await _change_stream(request.app['rooms'], groupid, sensorid, ws, rtypeid)
+                status = await _change_stream(request.app["rooms"], groupid, sensorid, ws, rtypeid)
                 # construct a response containing the top 100 readings for the stream
-                resp['cmd'] = 'RESP_STREAM'
+                resp["cmd"] = "RESP_STREAM"
                 if status:
                     readings = []
                     try:
-                        async for reading in request.app['db'].get_readings(sensorid, groupid, rtypeid):
-                            reading['rstring'] = filter_reading(reading)
+                        async for reading in request.app["db"].get_readings(sensorid, groupid, rtypeid):
+                            reading["rstring"] = filter_reading(reading)
                             readings.append(reading)
                     except DBError as e:
                         print(e)
-                        resp['cmd'] = 'RESP_ERROR'
-                        resp['error'] = 'ERROR: There was an issue retrieving the top 100 readings for the new reading type from the database!'
+                        resp["cmd"] = "RESP_ERROR"
+                        resp["error"] = "ERROR: There was an issue retrieving the top 100 readings for the new reading type from the database!"
                         await ws.send_str(simplejson.dumps(resp))
                         continue
-                    resp['readings'] = readings
+                    resp["readings"] = readings
                 else:
-                    resp['cmd'] = 'RESP_ERROR'
-                    resp['error'] = 'ERROR: Unable to change stream!'
+                    resp["cmd"] = "RESP_ERROR"
+                    resp["error"] = "ERROR: Unable to change stream!"
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
             # handle requests for getting stats on sensors
-            elif cmd == 'RQST_SENSOR_STATS':
-                sensorid = int(js['sensorid'])
-                groupid = int(js['groupid'])
-                rtypeid = int(js['rtypeid'])
-                start_ts = int(js['start_ts'])
-                end_ts = int(js['end_ts'])
-                resp['cmd'] = 'RESP_SENSOR_STATS'
+            elif cmd == "RQST_SENSOR_STATS":
+                sensorid = int(js["sensorid"])
+                groupid = int(js["groupid"])
+                rtypeid = int(js["rtypeid"])
+                start_ts = int(js["start_ts"])
+                end_ts = int(js["end_ts"])
+                resp["cmd"] = "RESP_SENSOR_STATS"
                 # get stats info from the database
                 try:
-                    resp['stats'] = await request.app['db'].stats_sensor(sensorid,
+                    resp["stats"] = await request.app["db"].stats_sensor(sensorid,
                         groupid, rtypeid, start_ts, end_ts)
                 except DBError:
-                    resp['cmd'] = 'RESP_STATS_ERROR'
-                    resp['error'] = 'ERROR: Cannot retrieve reading statistics, there was an issue with the database!'
+                    resp["cmd"] = "RESP_STATS_ERROR"
+                    resp["error"] = "ERROR: Cannot retrieve reading statistics, there was an issue with the database!"
                 # send the response to the client
                 await ws.send_str(simplejson.dumps(resp))
-            elif cmd == 'RQST_DOWNLOAD':
-                sensorid = int(js['sensorid'])
-                groupid = int(js['groupid'])
-                start_ts = int(js['start_ts'])
-                end_ts = int(js['end_ts'])
-                resp['cmd'] = 'RESP_DOWNLOAD'
+            elif cmd == "RQST_DOWNLOAD":
+                sensorid = int(js["sensorid"])
+                groupid = int(js["groupid"])
+                start_ts = int(js["start_ts"])
+                end_ts = int(js["end_ts"])
+                resp["cmd"] = "RESP_DOWNLOAD"
                 try:
                     data = []
-                    async for doc in request.app['db'].get_readings_by_period(sensorid,
+                    async for doc in request.app["db"].get_readings_by_period(sensorid,
                         groupid, start_ts, end_ts):
                         data.append(doc)
-                    resp['data'] = data
+                    resp["data"] = data
                 except Exception as e:
-                    resp['cmd'] = 'RESP_DOWNLOAD_ERROR'
-                    resp['error'] = 'ERROR: Cannot retrieve readings for download, there was an issue with the database!'
+                    resp["cmd"] = "RESP_DOWNLOAD_ERROR"
+                    resp["error"] = "ERROR: Cannot retrieve readings for download, there was an issue with the database!"
                 await ws.send_str(simplejson.dumps(resp))
         elif msg.type == aiohttp.WSMsgType.ERROR:
             resp = dict()
-            resp['cmd'] == 'RESP_WS_ERROR'
-            resp['error'] = 'ERROR: WebSocket encountered an error: %s\nPlease refresh the page.'.format(ws.exception())
+            resp["cmd"] == "RESP_WS_ERROR"
+            resp["error"] = "ERROR: WebSocket encountered an error: %s\nPlease refresh the page.".format(ws.exception())
             await ws.send_str(simplejson.dumps(resp))
 
-    await _leave(request.app['rooms'], groupid, sensorid, ws)
+    await _leave(request.app["rooms"], groupid, sensorid, ws)
 
     return ws
 
@@ -274,9 +274,9 @@ async def socket_shutdown_handler(app):
         app (aiohttp.web.Application): The web application hosting the sensor rooms.
     """
     # close any open websockets
-    for groupid, sensor in app['rooms'].keys():
-        for ws in app['rooms'][(groupid, sensor)].keys():
+    for groupid, sensor in app["rooms"].keys():
+        for ws in app["rooms"][(groupid, sensor)].keys():
             if not ws.closed:
                 # close the WebSocket
                 await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY,
-                       message='Server shutdown')
+                       message="Server shutdown")
