@@ -134,7 +134,7 @@ async def message(rooms, groupid, sensorid, msg):
         # get the rtype, so we only send to clients that ask for it specifically
         rtypeid = msg["rtypeid"]
     except KeyError:
-        print("ERROR: KeyError has occurred sending message, "rtypeid" not found!")
+        print("ERROR: KeyError has occurred sending message, 'rtypeid' not found!")
         return
     # steps through all clients in the room
     for ws, rtype in rooms[(groupid, sensorid)].items():

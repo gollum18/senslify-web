@@ -370,12 +370,14 @@
                 }
                 // check if an alert needs raised
                 if (readingsSoFar > 0) {
-                    let priorValue = parseFloat(priorReading.val)
-                    if (value > priorValue + priorValue * max_reading_deviation) {
+                    let mu = parseFloat(tdAvg.text());
+                    let lowerBound = mu - mu * max_reading_deviation;
+                    let upperBound = mu + mu * max_reading_deviation;
+                    if (value > upperBound) {
                         pushAlert(resp.readings[0]);
                         let msg = {'cmd': 'RESP_ERROR', 'error': 'Most recent reading is above tolerated amount!'}
                         errorHandler(msg);
-                    } else if (value < priorValue - priorValue * max_reading_deviation) {
+                    } else if (value < lowerBound) {
                         pushAlert(resp.readings[0]);
                         let msg = {'cmd': 'RESP_ERROR', 'error': 'Most recent reading is below tolerated amount!'};
                         errorHandler(msg);
