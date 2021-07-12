@@ -98,6 +98,7 @@ async def _verify_stats_request(request, params):
     if rtypeid < 0: return False, "ERROR: Request parameter 'rtypeid' must be >= 0!"
     if start_ts < 0: return False, "ERROR: Request parameter 'start_ts' must be >= 0!"
     if end_ts < 0: return False, "ERROR: Request parameter 'end_ts' must be >= 0!"
+    if start_ts >= end_ts: return False, "ERROR: Request parmeter 'start_ts must be < ''end_ts!"
     if not await request.app["db"].does_group_exist(groupid):
         return False, "ERROR: No such group provisioned into the system!"
     if target == "sensor":
@@ -138,6 +139,7 @@ async def _verify_download_request(request, params):
     if sensorid < 0: return False, "ERROR: Request parameter 'sensorid' must be >= 0!"
     if start_ts < 0: return False, "ERROR: Request parameter 'start_ts' must be >= 0!"
     if end_ts < 0: return False, "ERROR: Request parameter 'end_ts' must be >= 0!"
+    if start_ts >= end_ts: return False, "ERROR: Request parmeter 'start_ts must be < ''end_ts!"
     if not await request.app["db"].does_group_exist(groupid):
         return False, "ERROR: No such group provisioned into the system!"
     if not await request.app["db"].does_sensor_exist(sensorid, groupid):
