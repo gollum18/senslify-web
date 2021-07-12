@@ -942,7 +942,36 @@ class MongoProvider(DatabaseProvider):
                         "ts": {"$lte": end_ts}
                     }]
                 }
-            }
+            },
+            # project the groupid and sensorid
+            {"$project": {"val": 1, "groupid": 1, "sensorid": 1}},
+            # perform normal facet aggregation
+            {"$facet": {
+                "min": [
+                    {"$group":
+                        {
+                            "_id": None,
+                            "value": {"$min": "$val"}
+                        }
+                    }
+                ],
+                "max": [
+                    {"$group":
+                        {
+                            "_id": None,
+                            "value": {"$max": "$val"}
+                        }
+                    }
+                ],
+                "avg": [
+                    {"$group":
+                        {
+                            "_id": None,
+                            "value": {"$avg": "$val"}
+                        }
+                    }
+                ]
+            }}
         ]
         try:
             with self._conn[self._db].readings.aggregate(pipeline,
