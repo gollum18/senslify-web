@@ -67,7 +67,7 @@ async def _download_handler(request, params):
         # call the appropriate db handler based on target
         resp_body['readings'] = await request.db.get_readings_by_period(sensorid, groupid, start_ts, end_ts)
     except Exception as e:
-        if request.app.config['debug']:
+        if request.app['config'].debug:
             return aiohttp.web.Response(traceback_str(e), 403)
         else:
             return aiohttp.web.Response('ERROR: Unable to understand target/parameters!', 403)
@@ -144,12 +144,12 @@ async def _stats_handler(request, params):
     # call the appropriate db handler based on target
     try:
         if target == 'group':
-            resp_body['stats'] = await request.db.stats_group(groupid, rtypeid, start_ts, end_ts)
+            resp_body['stats'] = [doc async for doc in request.app['db'].stats_group(groupid, rtypeid, start_ts, end_ts)]
         elif target == 'sensor':
             sensorid = int(params['sensorid'])
-            resp_body['stats'] = await request.db.stats_sensor(sensorid, groupid, rtypeid, start_ts, end_ts)
+            resp_body['stats'] = await request.app['db'].stats_sensor(sensorid, groupid, rtypeid, start_ts, end_ts)
     except Exception as e:
-        if request.app.config['debug']:
+        if request.app['config'].debug:
             return generate_error(traceback_str(e), 403)
         else:
             return generate_error('ERROR: There was an issue understanding your request!', 403)

@@ -30,7 +30,7 @@
 #   a secondary provider for the Senslify web application.
 
 
-import bson, pymongo, pyodbc, sys
+import asyncio, bson, pymongo, pyodbc, sys
 from contextlib import contextmanager
 from senslify.errors import DBError
 
@@ -905,7 +905,7 @@ class MongoProvider(DatabaseProvider):
         
 
     async def stats_group(self, groupid, rtypeid, start_ts, end_ts):
-        """Returns the stats for an entire group of sensors.
+        """Returns the stats for an entire group of sensors as a Python generator.
 
         Args:
             groupid (int): The id of the group the sensor belongs to.
@@ -921,63 +921,12 @@ class MongoProvider(DatabaseProvider):
         # bail if we arent connected to the database
         if not self._open:
             raise DBError('Cannot retrieve stats for sensor, database connection not open!')
-        # build the pipeline
-        pipeline = [
-            # filter all elements that do not match the indicated group and rtype
-            {"$match": {
-                    "$and": [{
-                        "groupid": {"$eq": groupid},
-                        "rtypeid": {"$eq": rtypeid}
-                    }]
-                }
-            },
-            # optimization step - sort descending by time
-            {"$sort":
-                {"ts": -1}
-            },
-            # filter out all elements that do not fit within the time bound
-            {"$match": {
-                    "$and": [{
-                        "ts": {"$gte": start_ts},
-                        "ts": {"$lte": end_ts}
-                    }]
-                }
-            },
-            # project the groupid and sensorid
-            {"$project": {"val": 1, "groupid": 1, "sensorid": 1}},
-            # perform normal facet aggregation
-            {"$facet": {
-                "min": [
-                    {"$group":
-                        {
-                            "_id": None,
-                            "value": {"$min": "$val"}
-                        }
-                    }
-                ],
-                "max": [
-                    {"$group":
-                        {
-                            "_id": None,
-                            "value": {"$max": "$val"}
-                        }
-                    }
-                ],
-                "avg": [
-                    {"$group":
-                        {
-                            "_id": None,
-                            "value": {"$avg": "$val"}
-                        }
-                    }
-                ]
-            }}
-        ]
         try:
-            with self._conn[self._db].readings.aggregate(pipeline,
-                    allowDiskUse=True, maxTimeMS=self.MAX_AGGREGATE_MS) as cursor:
-                # the above project should only return a single document
-                return cursor.next()
+            sensors = [s async for s in self.get_sensors(groupid)]
+            aws = [self.stats_sensor(sensor['sensorid'], groupid, rtypeid, start_ts, end_ts) for sensor in sensors]
+            docs = await asyncio.gather(*aws)
+            for doc in docs:
+                yield doc
         except Exception as e:
             raise DBError(f'ERROR: {str(e)}')
 
